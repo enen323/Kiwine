@@ -97,7 +97,8 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 **Files**:
 - Create: `prepdeck-backend/src/main/java/com/prepdeck/common/filter/AuthFilter.java`
 - Create: servlet 版 CORS 配置（`com.prepdeck.common.config` 下 `WebMvcConfigurer` 或 `CorsFilter` bean，二选一，与现有 config 包风格一致）
-- Reference（只读不改）: `prepdeck-backend/common/src/main/java/com/prepdeck/common/util/SecurityContext.java`、`JwtProvider`、`TokenBlacklist`
+- Reference（只读不改）: `prepdeck-backend/common/src/main/java/com/prepdeck/common/util/SecurityContext.java`、`TokenBlacklist`
+- **例外（Task 3 review 裁决，见设计文档 §3 末条）**: `JwtProvider.createToken` 补 `.id(UUID.randomUUID().toString())` 一行 + import——不设 jti 则黑名单分支永不执行、登出无法吊销，设计验收标准必败。仅此一行，JwtProvider 其余零改动。
 
 **Interfaces**:
 - `AuthFilter extends OncePerRequestFilter`：白名单前缀匹配（`/api/v1/auth/login`、`/api/v1/auth/register`、`/api/v1/auth/refresh`、`/api/system/login`、`/api/v1/payment/callback/`、`/actuator/health`、`/health`）；流程：取 `Authorization: Bearer` → jti → `StringRedisTemplate` 查 `TokenBlacklist.blacklistKey(jti)` → `JwtProvider.validateToken` → wrapper 注入 `X-User-Id`（subject）/`X-User-Role`/`X-Gateway-Source: prepdeck-gateway`/`X-Gateway-Secret`（env `GATEWAY_SECRET`，默认值 `10b8e581a75345c78bdc195188a74e0f3dccf51ef33d4452b34c6bed67cd7422`）；失败 401。
