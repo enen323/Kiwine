@@ -2,13 +2,27 @@ package com.prepdeck.job.client;
 
 import com.prepdeck.common.dto.QuotaCheckResult;
 import com.prepdeck.common.model.Result;
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import com.prepdeck.quota.service.QuotaService;
+import jakarta.annotation.Resource;
+import org.springframework.stereotype.Component;
 
-@FeignClient(name = "quota-service", path = "/api/v1/quota", fallbackFactory = QuotaClientFallbackFactory.class)
-public interface QuotaClient {
+/**
+ * 原 quota-service Feign 客户端，单体化后改为本地直调。
+ *
+ * <p>契约对照：QuotaController#consume（POST /api/v1/quota/consume，仅 serviceType 参数，userId 由
+ * SecurityContext 解析）；原接口多出的 userId 参数在单体里由 QuotaService#consume 自行解析
+ * （唯一调用方 AiCoverLetterServiceImpl 传入的正是 SecurityContext 的当前用户，行为等价）。
+ * QuotaService 返回 quota.dto.response.QuotaCheckResult，与 common.dto.QuotaCheckResult 结构相同但类型不同
+ * （HTTP 时代靠 JSON 序列化互换，JVM 内必须显式转换），故此处逐字段转换以保持原方法签名不变。</p>
+ */
+@Component
+public class QuotaClient {
 
-    @PostMapping("/consume")
-    Result<QuotaCheckResult> consume(@RequestParam Long userId, @RequestParam String serviceType);
+    @Resource
+    private QuotaService quotaService;
+
+    public Result<QuotaCheckResult> consume(Long userId, String serviceType) {
+        com.prepdeck.quota.dto.response.QuotaCheckResult result = quotaService.consume(serviceType);
+        return Result.success(new QuotaCheckResult(result.allowed(), result.type(), result.reason(), result.price()));
+    }
 }

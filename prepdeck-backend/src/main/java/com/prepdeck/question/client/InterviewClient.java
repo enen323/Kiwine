@@ -1,18 +1,29 @@
 package com.prepdeck.question.client;
 
 import com.prepdeck.common.dto.UserPracticeSummaryVO;
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import com.prepdeck.interview.service.InterviewService;
+import jakarta.annotation.Resource;
+import org.springframework.stereotype.Component;
 
-@FeignClient(name = "interview-service", path = "/api/v1/interviews",
-        fallbackFactory = InterviewClientFallbackFactory.class)
-public interface InterviewClient {
+/**
+ * 原 interview-service Feign 客户端，单体化后改为本地直调。
+ *
+ * <p>契约对照：InterviewController#getUserPracticeSummary（GET /api/v1/interviews/user-summary）→
+ * interviewService.getUserPracticeSummary(userId, recentInterviewLimit, practicedLimit)。controller 从
+ * SecurityContext 取 userId 并返回 Result&lt;UserPracticeSummaryVO&gt;，本客户端方法 historically 直接传 userId、
+ * 返回 UserPracticeSummaryVO（原接口即如此），故此处解包返回 data 部分。</p>
+ */
+@Component
+public class InterviewClient {
 
-    @GetMapping("/user-summary")
-    UserPracticeSummaryVO getUserPracticeSummary(
-            @RequestParam Long userId,
-            @RequestParam(required = false, defaultValue = "5") Integer recentInterviewLimit,
-            @RequestParam(required = false, defaultValue = "50") Integer practicedLimit
-    );
+    @Resource
+    private InterviewService interviewService;
+
+    public UserPracticeSummaryVO getUserPracticeSummary(Long userId,
+                                                        Integer recentInterviewLimit,
+                                                        Integer practicedLimit) {
+        return interviewService.getUserPracticeSummary(userId,
+                recentInterviewLimit == null ? 5 : recentInterviewLimit,
+                practicedLimit == null ? 50 : practicedLimit);
+    }
 }

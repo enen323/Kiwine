@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -31,36 +32,39 @@ public class QuotaServiceImpl extends ServiceImpl<UserQuotaMapper, UserQuotaEnti
     private static final String MONTHLY_RESET_LOCK_KEY = "quota:reset:lock";
     private static final long MONTHLY_RESET_LOCK_TTL = TimeUnit.HOURS.toSeconds(1);
 
+    // REQUIRES_NEW：原跨服务调用经 HTTP 边界各自提交（先提交后返回）；单体化后若沿用默认
+    // REQUIRED，配额写会并入调用方事务、随调用方回滚，语义被改变。故配额侧写方法一律挂起
+    // 调用方事务、独立提交。只读的 getQuota 不加。
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public QuotaCheckResult consume(String serviceType) {
         Long userId = SecurityContext.getCurrentUserId();
         return doConsume(userId, serviceType);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deductFree(String serviceType) {
         Long userId = SecurityContext.getCurrentUserId();
         doDeductFree(userId, serviceType);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deductPaid(String serviceType) {
         Long userId = SecurityContext.getCurrentUserId();
         doDeductPaid(userId, serviceType);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void grantPaid(String serviceType) {
         Long userId = SecurityContext.getCurrentUserId();
         doGrantPaid(userId, serviceType);
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void grantPaid(Long userId, String serviceType) {
         doGrantPaid(userId, serviceType);
     }
@@ -81,7 +85,7 @@ public class QuotaServiceImpl extends ServiceImpl<UserQuotaMapper, UserQuotaEnti
 
     @Override
     @Scheduled(cron = "0 0 0 1 * *")
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resetMonthly() {
         Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(
                 MONTHLY_RESET_LOCK_KEY, "1", MONTHLY_RESET_LOCK_TTL, TimeUnit.SECONDS);
