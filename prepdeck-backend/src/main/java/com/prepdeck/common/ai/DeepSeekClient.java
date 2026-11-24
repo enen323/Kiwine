@@ -2,13 +2,11 @@ package com.prepdeck.common.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -19,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
-@ConditionalOnProperty("spring.ai.deepseek.api-key")
 public class DeepSeekClient implements AiClient {
 
     private final ChatClient chatClient;
@@ -32,13 +29,11 @@ public class DeepSeekClient implements AiClient {
     }
 
     @Override
-    @SentinelResource(value = "aiChat", fallback = "chatFallback", fallbackClass = AiClientFallback.class)
     public String chat(String systemPrompt, String userMessage) {
         return doChat(systemPrompt, userMessage, null);
     }
 
     @Override
-    @SentinelResource(value = "aiChatJson", fallback = "chatFallback", fallbackClass = AiClientFallback.class)
     public String chat(String systemPrompt, String userMessage, String responseFormat) {
         return doChat(systemPrompt, userMessage, responseFormat);
     }
