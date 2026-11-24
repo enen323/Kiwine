@@ -75,7 +75,7 @@
   - `GATEWAY_SECRET` 取环境变量、默认值与现状一致。
   - **必须替换而非追加**：wrapper 对 `X-User-Id` / `X-User-Role` / `X-Gateway-Source` / `X-Gateway-Secret` 四个头同时覆盖 `getHeader` 和 `getHeaders`，杜绝客户端伪造头绕过（网关的 `mutate().header()` 是替换语义，servlet 侧必须一致）。
 - `SecurityContext` 不改：仍校验上述请求头，行为与网关时代一致（header 由自家 filter 注入）。
-- CORS 移植：`gateway/config/CorsConfig.java` 的 reactive `CorsWebFilter` → servlet 版（`CorsFilter` 或 `WebMvcConfigurer#addCorsMappings`），保留 `ALLOWED_ORIGINS` 环境变量、默认 `http://127.0.0.1:*`、`setAllowedOriginPatterns`、allowCredentials。
+- 黑名单链路补齐（Task 3 review 裁决，修正计划"JwtProvider 零改动"约束）：`JwtProvider.createToken`（prepdeck-backend/src/main/java/com/prepdeck/common/util/JwtProvider.java:93）必须补 `.id(UUID.randomUUID().toString())`。原实现不设 jti claim，`claims.getId()` 恒为 null，`AuthFilter` 的黑名单分支永不执行、登出无法吊销 token——网关时代就存在的旧缺陷，但本文档验收标准含"Redis 登出后黑名单生效"，不修则验收必败。**例外范围仅此一行 + 对应 import**，JwtProvider 其余部分、`SecurityContext`、`TokenBlacklist` 仍零改动。- CORS 移植：`gateway/config/CorsConfig.java` 的 reactive `CorsWebFilter` → servlet 版（`CorsFilter` 或 `WebMvcConfigurer#addCorsMappings`），保留 `ALLOWED_ORIGINS` 环境变量、默认 `http://127.0.0.1:*`、`setAllowedOriginPatterns`、allowCredentials。
 - 手动验收替代单测（用户决策不写测试）：白名单放行、无 token 401、有效 token 注入 header、黑名单 401 四项进验收标准手工验证。
 
 ### 4. Feign → 本地客户端
