@@ -13,12 +13,13 @@
 - **去 Nacos**：服务发现与配置中心全部移除，服务间调用改为进程内直接调用。
 - **MySQL**：连本机 MySQL，库名 `prepdeck`，表结构由 `sql/init/init-database.sql`（转换为 MySQL 方言）初始化；驱动 `com.mysql:mysql-connector-j`（版本由 Spring Boot BOM 管理）。
 - **认证不退化**：网关的 JWT 校验 + Redis 黑名单 + 请求头注入能力完整移植进单体。
-- **无 AI key 也能启动**：未配置 `spring.ai.deepseek.api-key` 时服务正常启动，AI 接口返回明确业务错误。
+- **AI fail fast**：未配置 `DEEPSEEK_API_KEY` 时启动即失败并给出明确错误，不静默降级、不新增空实现（用户决策）。
 
 ## 非目标
 
 - 不做旧 PostgreSQL 数据迁移（用户确认：全新建库，不要旧数据）。
-- 不配 DeepSeek api-key（用户确认：先留空）。
+- 不新增 AI 空实现/降级 bean（用户确认：配好 AI 才能启动）。
+- 不迁移、不新增任何测试代码（用户确认：旧测试全部删除，以后开发中慢慢补）。
 - 不动前端。
 - 不引入任何新依赖（MySQL 驱动是替换 pg 驱动，不是新增）。
 - 不做职责之外的重构清理（Feign 本地客户端作为可后续清理项保留）。
@@ -26,7 +27,7 @@
 ## 反目标（出现即失败）
 
 - 单体启动后登录态失效、需登录接口全部 401（认证移植失败）。
-- 启动即失败（如 `AiClient` 无 bean）。
+- 意外启动失败（缺 `DEEPSEEK_API_KEY` 导致的 fail fast 除外）。
 - 残留 nacos / sentinel / feign / gateway 依赖或配置导致启动报错、告警或行为变化。
 - 数据库方言转换丢表、丢索引、丢注释。
 
@@ -48,9 +49,9 @@
 
 ### 1. 结构（单模块）
 
-- 根 `pom.xml`：`packaging` 改 `jar`，挂 `spring-boot-maven-plugin`；依赖取各模块并集：web、validation、mybatis-plus-boot3-starter、mysql-connector-j(runtime)、jjwt 三件套、actuator、data-redis、security-crypto、hutool-all、spring-ai-starter-model-deepseek、lombok、test。
+- 根 `pom.xml`：`packaging` 改 `jar`，挂 `spring-boot-maven-plugin`；依赖取各模块并集：web、validation、mybatis-plus-boot3-starter、mysql-connector-j(runtime)、jjwt 三件套、actuator、data-redis、security-crypto、hutool-all、spring-ai-starter-model-deepseek、lombok（测试依赖随测试整体删除，见第 8 节）。
 - 删除：spring-cloud-alibaba BOM、nacos/sentinel/openfeign/loadbalancer 相关依赖；若移除后无任何 spring-cloud 使用，一并删除 Spring Cloud BOM（builder 核实，见"留给 builder"）。
-- 源码搬迁（`git mv`）：`{user,resume,interview,report,question,quota,payment,job}-service/src/main/java/com/prepdeck/<svc>/**` → `src/main/java/com/prepdeck/<svc>/**`；`common` 同样处理；`src/test` 随主源码一并搬迁。包名本来都是 `com.prepdeck.*`，零冲突。
+- 源码搬迁（`git mv`）：`{user,resume,interview,report,question,quota,payment,job}-service/src/main/java/com/prepdeck/<svc>/**` → `src/main/java/com/prepdeck/<svc>/**`；`common` 同样处理。各模块 `src/test` 整体删除，不搬迁（见第 8 节）。包名本来都是 `com.prepdeck.*`，零冲突。
 - 删除：9 个模块目录下的 pom、9 个 `*Application.java`、整个 `gateway/` 目录。
 - 新增 `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")` + `@MapperScan("com.prepdeck")`（覆盖各服务原来的 `.mapper` / `.repository` 两种包名）。
 - 现有行为保持不变的部分：`MyBatisPlusConfig` / `JacksonConfig` 今天就被各服务显式扫描（`scanBasePackages` 含 `com.prepdeck.common`），单体后同样激活；`ThreadPoolConfig` 今天就是死的（`@AutoConfiguration` 无 `AutoConfiguration.imports` 文件，`@Async` 未生效），单体后**保持死**——不在本次范围内"顺手修复"。
@@ -61,6 +62,7 @@
 - datasource：`jdbc:mysql://${DB_HOST:localhost}:3306/${DB_NAME:prepdeck}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true`，driver `com.mysql.cj.jdbc.Driver`，`${DB_USERNAME:root}` / `${DB_PASSWORD:root}`；Hikari 参数取现有最大值（maximum-pool-size 20 / minimum-idle 5 / idle-timeout 300000 / connection-timeout 10000 / max-lifetime 1200000）。
 - redis：host/port 默认 `localhost:6379`（取代各服务不一的默认值）。
 - mybatis-plus 段：各服务原一致，取一份（ASSIGN_ID、logic-delete、下划线转驼峰、StdOut 日志）。
+- AI：`spring.ai.deepseek.api-key: ${DEEPSEEK_API_KEY}`（无默认值，缺则启动失败）；`spring.ai.deepseek.base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}`。
 - 保留：`interview.prompt` 整段（来自 interview-service）、`spring.servlet.multipart` 10MB/20MB、`logging.level.com.prepdeck`。
 - 删除：`spring.cloud.*` 全部（nacos/gateway/loadbalancer/sentinel）、`feign.*`、所有 `spring.config.import: optional:nacos:...` 行。
 - 无需配置：`resume.upload.dir`、`wechatpay.app-id` 均有默认值。
@@ -74,7 +76,7 @@
   - **必须替换而非追加**：wrapper 对 `X-User-Id` / `X-User-Role` / `X-Gateway-Source` / `X-Gateway-Secret` 四个头同时覆盖 `getHeader` 和 `getHeaders`，杜绝客户端伪造头绕过（网关的 `mutate().header()` 是替换语义，servlet 侧必须一致）。
 - `SecurityContext` 不改：仍校验上述请求头，行为与网关时代一致（header 由自家 filter 注入）。
 - CORS 移植：`gateway/config/CorsConfig.java` 的 reactive `CorsWebFilter` → servlet 版（`CorsFilter` 或 `WebMvcConfigurer#addCorsMappings`），保留 `ALLOWED_ORIGINS` 环境变量、默认 `http://127.0.0.1:*`、`setAllowedOriginPatterns`、allowCredentials。
-- 测试：原 gateway 的 `AuthGlobalFilterTest`/`CorsConfigTest` 随 gateway 删除；为新 `AuthFilter` 补单元测试：白名单放行、无 token 401、有效 token 注入 header、黑名单 token 401。
+- 手动验收替代单测（用户决策不写测试）：白名单放行、无 token 401、有效 token 注入 header、黑名单 401 四项进验收标准手工验证。
 
 ### 4. Feign → 本地客户端
 
@@ -84,10 +86,11 @@
 - **事务语义保持现状**：今天跨服务调用是独立事务（HTTP 边界即提交）。合并后默认会加入调用方事务，因此对原跨服务边界上的**写操作**显式加 `@Transactional(propagation = Propagation.REQUIRES_NEW)`（至少覆盖：payment→quota 发放、interview→quota 扣减、resume/job→quota 扣减、quota 月度重置），保持"先提交后返回"的现有语义；只读调用不加。
 - **已知行为差异（用户已认可方向）**：本地调用失败不再降级为"服务不可用"，真实异常直接冒泡到 `GlobalExceptionHandler`。语义更正确，但错误码会变。
 
-### 5. AI 未配置可启动
+### 5. AI 必须配置才能启动（用户决策）
 
-- 新增 `com.prepdeck.common.ai.NoOpAiClient`：`@Component @ConditionalOnMissingBean(AiClient.class)`，三个方法抛 `BusinessException`（优先复用 `ErrorCode.LLM_SERVICE_ERROR`，builder 核对；确无合适码才新增 `AI_NOT_CONFIGURED`）。
-- `DeepSeekClient`：删 `@SentinelResource` 注解（sentinel 移除后编译不过）；`@ConditionalOnProperty("spring.ai.deepseek.api-key")` 保留。
+- 删 `DeepSeekClient` 的 `@ConditionalOnProperty("spring.ai.deepseek.api-key")` 及 import：保留 `@Value("${spring.ai.deepseek.api-key}")`（无默认值），缺 key 时 bean 创建失败、启动即报错，fail fast。
+- **不新增 NoOpAiClient 或任何降级 bean**（用户明确不要）。
+- `DeepSeekClient`：删 `@SentinelResource` 注解（sentinel 移除后编译不过）。
 - 删除 `AiClientFallback`（仅 sentinel fallbackClass 使用）。
 - 四个注入点（`InterviewEngine`、`ResumeServiceImpl`、`JobApplicationServiceImpl`、`AiCoverLetterServiceImpl`）零改动。
 
@@ -99,7 +102,7 @@
 ### 7. MySQL 化
 
 - 依赖：`org.postgresql:postgresql` → `com.mysql:mysql-connector-j`（不写死版本，走 Spring Boot BOM）。
-- 连接串：9 个 `application.yml` + 5 个测试类的 `@TestPropertySource` 全部改 mysql（pg 的 `currentSchema=interview` 参数删除，MySQL 库名即 `prepdeck`）。
+- 连接串：9 个 `application.yml` 改 mysql（pg 的 `currentSchema=interview` 参数删除，MySQL 库名即 `prepdeck`）；测试类随测试整体删除，不再涉及。
 - `JsonbTypeHandler`（common 与 resume-service 两份）：`ps.setObject(i, json, Types.OTHER)` → `Types.VARCHAR`（MySQL Connector/J 不支持 OTHER）。类名保留，避免牵连 `@TableField(typeHandler=...)` 引用。
 - `sql/init/init-database.sql`（596 行）转 MySQL 方言：
   - 头部 `CREATE DATABASE IF NOT EXISTS prepdeck ... ; USE prepdeck;`（本机手动执行场景）。
@@ -126,13 +129,12 @@
 
 **选定方案 A**：DDL 均不建这两个索引，依赖应用层检查。`shortcut: 并发双开面试的竞态窗口存在（应用检查非原子），生产化需生成列唯一索引`。
 
-### 8. 测试
+### 8. 测试 — 全部删除，不搬迁（用户决策）
 
-- 67 个测试随源码搬迁；含 nacos/pg 属性的改为 mysql 属性（nacos 属性直接删）。
-- **删除测试被删类的测试**：6 个 `*FallbackFactoryTest`（interview×2、job×2、payment、resume）+ `common/src/test/java/com/prepdeck/common/ai/AiClientFallbackTest.java`（对应类已删，否则编译不过）。
-- DB 集成测试（mapper 测试）要求本机 MySQL 已按新 init SQL 建库建表；纯单元测试不受影响。
-- `@SpringBootTest` 集成测试合并后会启动整个单体上下文（8 个服务全量 bean），需要 MySQL + Redis 就绪——验收条件已涵盖。
-- 验收底线：`mvn -DskipTests package` 必须通过；全量 `mvn test` 在 MySQL 就绪后通过。
+- 用户确认：旧机器上测试已全部通过，代码可能也有一些问题（不去查明），以后开发中慢慢补。
+- 删除所有模块的 `src/test` 目录与全部 67 个测试文件，不做任何迁移或属性修改；不写新测试。
+- 根 pom 删除 `spring-boot-starter-test` 依赖（唯一用途即测试）。
+- 后果：合并后唯一构建门禁是编译通过；`mvn package` 无测试阶段。关键路径（认证、AI 配置）的验证移入验收标准手工执行。
 
 ### 9. 前端
 
@@ -141,16 +143,14 @@
 ## 已知行为差异（需用户知晓）
 
 1. 本地调用失败不再降级为"服务不可用"（SERVICE_UNAVAILABLE），直接抛真实业务异常。
-2. 提供 deepseek key 之前，AI 相关接口返回 `LLM_SERVICE_ERROR`。
+2. 启动前必须配置 `DEEPSEEK_API_KEY`，否则启动失败（fail fast，用户决策）。
 3. 端口从"9 服务 + 网关"收敛为单一 8080。
-4. 旧 Nacos 上可能还有仓库里没有的 per-service `-dev.yml` 覆盖（日志级别等）——无法找回，影响仅限默认值差异；AI 相关（deepseek key/base-url）按用户决定留空。
+4. 旧 Nacos 上可能还有仓库里没有的 per-service `-dev.yml` 覆盖（日志级别等）——无法找回，影响仅限默认值差异；deepseek 的 key/base-url 改由本地 yml/环境变量提供。
 5. 关键词搜索改用 LIKE：失去 pg 的相关性排序，大数据量下全表扫描（已决策，见 7b）。
 6. 两个部分唯一索引不再有 DB 层保证，仅应用层检查，存在并发竞态窗口（已决策，见 7c）。
 
 ## 留给 builder 的事项
 
-- 是否存在 MyBatis mapper XML 及位置（有则搬到 `src/main/resources`）。
-- `ErrorCode` 核对：有无现成"AI 未配置"码，没有则复用 `LLM_SERVICE_ERROR`。
 - 移除 Spring Cloud BOM 前确认无残留 spring-cloud 引用（重点看 `common/config/ThreadPoolConfig` 等）。
 - 复核 `QuestionController`（`/api/v1`）与其它控制器无路径冲突。
 - 确认 MyBatis-Plus 自动扫描覆盖 `com.prepdeck.*`（是否需要显式 `@MapperScan`）。
@@ -158,9 +158,9 @@
 
 ## 验收标准
 
-1. `mvn -DskipTests package` 成功。
+1. `mvn package` 成功（已无测试阶段，依赖编译通过）。
 2. 本机 MySQL 执行新 `sql/init/init-database.sql` 成功，表/索引数量与原 pg 脚本一致。
-3. 启动单体：`/actuator/health` 200；无 token 访问 `/api/v1/users/**` 返回 401；登录拿 token 后 200。
-4. Redis 容器在跑时，登出后旧 token 立即失效（黑名单生效）。
-5. 无 deepseek key 启动成功，AI 接口返回明确业务错误而非 500 堆栈。
+3. 未配 `DEEPSEEK_API_KEY` 时启动失败并给出明确错误；配置后启动成功。
+4. 启动单体：`/actuator/health` 200；无 token 访问 `/api/v1/users/**` 返回 401；登录拿 token 后 200。
+5. AuthFilter 手工验证：白名单路径（登录/注册/refresh/health）无 token 放行；其余路径无 token 401；伪造 `X-User-Id` 头不带合法 token 时 401（防伪造）；Redis 在跑时登出后旧 token 立即失效（黑名单生效）。
 6. 前端 `npm run dev`：登录 → 创建简历 → 开始面试主链路可用。
