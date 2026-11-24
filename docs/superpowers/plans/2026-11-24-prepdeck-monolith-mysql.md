@@ -53,21 +53,23 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 **Files**:
 - Create: `prepdeck-backend/src/main/java/com/prepdeck/PrepDeckApplication.java`
 - Modify: `prepdeck-backend/pom.xml`（整体重写）
-- Move（`git mv`）: `prepdeck-backend/{user,resume,interview,report,question,quota,payment,job}-service/src/main/java/com/prepdeck/<svc>/**` 与 `prepdeck-backend/common/src/main/java/com/prepdeck/common/**` → `prepdeck-backend/src/main/java/com/prepdeck/<svc>|common/**`
-- Delete: 9 个模块 `pom.xml`、9 个 `*Application.java`、整个 `prepdeck-backend/gateway/` 目录、所有模块的 `src/test/` 目录（含 common 的）
+- Move（`git mv`）: `prepdeck-backend/{user,resume,interview,report,question,quota,payment,job}-service/src/main/java/com/prepdeck/<svc>/**` 与 `prepdeck-backend/common/src/main/java/com/prepdeck/common/**` → `prepdeck-backend/src/main/java/com/prepdeck/<svc>|common/**`；resources 一并合并：5 个 mapper XML（`question-service/.../mapper/` 4 个 + `quota-service/.../mapper/UserQuotaMapper.xml`）→ `prepdeck-backend/src/main/resources/mapper/`；2 个 migration SQL → `prepdeck-backend/src/main/resources/db/migration/`（Task 7 吸收后删）
+- Delete: 9 个模块 `pom.xml`、9 个 `*Application.java`、9 个模块 `src/main/resources/application*.yml`、整个 `prepdeck-backend/gateway/` 目录、所有模块的 `src/test/` 目录（含 common 的）
 
 **Interfaces**:
 - `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")`、`@MapperScan("com.prepdeck")`、标准 `main`。
 
 **Steps**:
-- [ ] 读设计文档"具体设计 §1"，按 Files 列执行 `git mv`（主源码；`src/test` 不搬、直接删）
-- [ ] 删除 9 个 `*Application.java`、9 个模块 pom、整个 gateway 目录
+- [ ] 读设计文档"具体设计 §1"，按 Files 列执行 `git mv`（主源码 + mapper XML + migration SQL；`src/test` 不搬、直接删）
+- [ ] 删除 9 个 `*Application.java`、9 个模块 pom、9 个模块 `src/main/resources/application*.yml`、整个 gateway 目录
 - [ ] 重写根 `pom.xml`：`packaging=jar`；挂 `spring-boot-maven-plugin`；依赖按设计文档 §1 并集清单；删 spring-cloud BOM、alibaba BOM、nacos/sentinel/openfeign/loadbalancer、`spring-boot-starter-test`
 - [ ] 新建 `PrepDeckApplication.java`（见 Interfaces）
-- [ ] 验证：`grep -rn "spring-cloud\|nacos\|sentinel\|openfeign" pom.xml` 无输出；`find . -name "*Application.java" | grep -v PrepDeckApplication` 为空；`find . -path "*/src/test" -type d` 为空；`mvn -q validate` 通过（pom 可解析）
+- [ ] 验证：`grep -rn "spring-cloud\|nacos\|sentinel\|openfeign" pom.xml` 无输出；`find . -name "*Application.java" | grep -v PrepDeckApplication` 为空；`find . -path "*/src/test" -type d` 为空；`find . -name "application*.yml" -not -path "./src/*"` 为空；`ls src/main/resources/mapper/` 有 5 个 XML；`mvn -q validate` 通过（pom 可解析）
 - [ ] Commit
 
 **注意**：本任务完成后 `mvn compile` **预期失败**——feign 接口与 `@SentinelResource` 仍引用已删依赖，Task 4/5 完成后恢复；首次全量编译在 Task 9。验证只用 `mvn validate`。
+
+**依赖**：Task 2–8 的路径都以本任务的搬迁结果为前提（如 Task 6 的 `src/main/resources/mapper/QuestionMapper.xml`）。
 
 **依赖**：无（阻塞其余全部任务）。
 
@@ -183,7 +185,7 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 
 **Files**:
 - Rewrite: `prepdeck-backend/sql/init/init-database.sql`（596 行 pg → MySQL）
-- Absorb（内容并入 init SQL 后删源文件）: `job-service/src/main/resources/db/migration/V1__create_job_tables.sql`、`interview-service/src/main/resources/db/migration/V1.0.1__add_active_interview_unique_index.sql`
+- Absorb（内容并入 init SQL 后删源文件）: `prepdeck-backend/src/main/resources/db/migration/V1__create_job_tables.sql`、`prepdeck-backend/src/main/resources/db/migration/V1.0.1__add_active_interview_unique_index.sql`（Task 1 已搬到根 resources 下）
 
 **Steps**:
 - [ ] 头部 `CREATE DATABASE IF NOT EXISTS prepdeck ...; USE prepdeck;`；删 `CREATE SCHEMA`、13 个 `CREATE SEQUENCE`；表名去 `interview.` 前缀
