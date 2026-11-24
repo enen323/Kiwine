@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * JWT Token 提供者 —— 签发与校验
@@ -94,6 +95,7 @@ public final class JwtProvider {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .id(UUID.randomUUID().toString())
                 .claim("role", role)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expireMs))
