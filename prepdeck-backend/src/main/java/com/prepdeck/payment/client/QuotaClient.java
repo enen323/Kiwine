@@ -1,13 +1,23 @@
 package com.prepdeck.payment.client;
 
 import com.prepdeck.common.model.Result;
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import com.prepdeck.quota.service.QuotaService;
+import jakarta.annotation.Resource;
+import org.springframework.stereotype.Component;
 
-@FeignClient(name = "quota-service", path = "/api/v1/quota", fallbackFactory = QuotaClientFallbackFactory.class)
-public interface QuotaClient {
+/**
+ * 原 quota-service Feign 客户端，单体化后改为本地直调。
+ *
+ * <p>契约对照：QuotaController#grantPaidByUser（POST /api/v1/quota/grant-paid-by-user）。</p>
+ */
+@Component
+public class QuotaClient {
 
-    @PostMapping("/grant-paid-by-user")
-    Result<Void> grantPaid(@RequestParam Long userId, @RequestParam String serviceType);
+    @Resource
+    private QuotaService quotaService;
+
+    public Result<Void> grantPaid(Long userId, String serviceType) {
+        quotaService.grantPaid(userId, serviceType);
+        return Result.success();
+    }
 }

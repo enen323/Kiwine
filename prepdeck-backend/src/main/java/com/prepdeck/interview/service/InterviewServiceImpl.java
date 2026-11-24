@@ -48,8 +48,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import feign.FeignException;
-
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.time.LocalDateTime;
@@ -354,10 +352,6 @@ public class InterviewServiceImpl implements InterviewService {
             heartbeat(emitter);
             emitter.complete();
             dequeueAsyncTask(currentInterviewId);
-        } catch (FeignException e) {
-            log.error("远程服务调用失败: interviewId={}, status={}, body={}",
-                    currentInterviewId, e.status(), e.contentUTF8(), e);
-            completeWithError(emitter, "AI 服务暂时不可用，请稍后重试");
         } catch (Exception e) {
             Throwable root = unwrapRootCause(e);
             if (root instanceof java.io.IOException) {
@@ -606,10 +600,6 @@ public class InterviewServiceImpl implements InterviewService {
             heartbeat(emitter);
             emitter.complete();
             dequeueAsyncTask(currentInterviewId);
-        } catch (FeignException e) {
-            log.error("远程服务调用失败: interviewId={}, status={}, body={}",
-                    currentInterviewId, e.status(), e.contentUTF8(), e);
-            completeWithError(emitter, "AI 服务暂时不可用，请稍后重试");
         } catch (Exception e) {
             Throwable root = unwrapRootCause(e);
             if (root instanceof java.io.IOException) {
