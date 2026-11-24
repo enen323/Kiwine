@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/common/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/common/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/gateway/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/gateway/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/interview-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/interview-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/job-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/job-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/payment-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/payment-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/question-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/question-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/quota-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/quota-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/report-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/report-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/resume-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/resume-service/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/user-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/prepdeck-backend/user-service/src/main/resources" charset="UTF-8" />
+  </component>
+</project>

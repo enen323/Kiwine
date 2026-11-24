@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.prepdeck.question.repository.QuestionMapper">
+
+    <!-- 全文检索 -->
+    <select id="searchByVector" resultType="com.prepdeck.question.domain.QuestionEntity">
+        SELECT *
+        FROM interview.question
+        WHERE deleted = false
+          AND search_vector @@ websearch_to_tsquery('simple', #{keyword})
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSearchByVector" resultType="long">
+        SELECT COUNT(*)
+        FROM interview.question
+        WHERE deleted = false
+          AND search_vector @@ websearch_to_tsquery('simple', #{keyword})
+    </select>
+
+    <!-- 随机选题 -->
+    <select id="selectRandom" resultType="com.prepdeck.question.domain.QuestionEntity">
+        SELECT *
+        FROM interview.question
+        WHERE deleted = false
+        ORDER BY RANDOM()
+        LIMIT #{limit}
+    </select>
+
+    <!-- 列表查询（分页 + 筛选 + 排序） -->
+    <select id="selectQuestionList" resultType="com.prepdeck.question.domain.QuestionEntity">
+        SELECT *,
+               (views * 0.1 + favorites * 0.3 + interview_count * 0.5) AS heat
+        FROM interview.question q
+        WHERE q.deleted = false
+          <if test="type != null and type != ''">
+            AND q.type = #{type}
+          </if>
+          <if test="difficulty != null and difficulty != ''">
+            AND q.difficulty = #{difficulty}
+          </if>
+          <if test="keyword != null and keyword != ''">
+            AND q.search_vector @@ websearch_to_tsquery('simple', #{keyword})
+          </if>
+          <if test="tagIds != null and tagIds.size() > 0">
+            AND EXISTS (
+                SELECT 1
+                FROM interview.question_tag qt
+                WHERE qt.question_id = q.id
+                  AND qt.tag_id IN
+                <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                    #{tagId}
+                </foreach>
+                GROUP BY qt.question_id
+                HAVING COUNT(DISTINCT qt.tag_id) = ${tagIds.size()}
+            )
+          </if>
+        <choose>
+            <when test="sortBy != null and sortBy != ''">
+                <choose>
+                    <when test="order != null and order.equalsIgnoreCase('asc')">
+                ORDER BY
+                    <choose>
+                        <when test="sortBy == 'interviewCount'">q.interview_count ASC</when>
+                        <when test="sortBy == 'views'">q.views ASC</when>
+                        <when test="sortBy == 'favorites'">q.favorites ASC</when>
+                        <when test="sortBy == 'createTime'">q.create_time ASC</when>
+                        <otherwise>(q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) ASC</otherwise>
+                    </choose>
+                    </when>
+                    <otherwise>
+                ORDER BY
+                    <choose>
+                        <when test="sortBy == 'interviewCount'">q.interview_count DESC</when>
+                        <when test="sortBy == 'views'">q.views DESC</when>
+                        <when test="sortBy == 'favorites'">q.favorites DESC</when>
+                        <when test="sortBy == 'createTime'">q.create_time DESC</when>
+                        <otherwise>(q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) DESC</otherwise>
+                    </choose>
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY (q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) DESC
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countQuestionList" resultType="long">
+        SELECT COUNT(*)
+        FROM interview.question q
+        WHERE q.deleted = false
+          <if test="type != null and type != ''">
+            AND q.type = #{type}
+          </if>
+          <if test="difficulty != null and difficulty != ''">
+            AND q.difficulty = #{difficulty}
+          </if>
+          <if test="keyword != null and keyword != ''">
+            AND q.search_vector @@ websearch_to_tsquery('simple', #{keyword})
+          </if>
+          <if test="tagIds != null and tagIds.size() > 0">
+            AND EXISTS (
+                SELECT 1
+                FROM interview.question_tag qt
+                WHERE qt.question_id = q.id
+                  AND qt.tag_id IN
+                <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                    #{tagId}
+                </foreach>
+                GROUP BY qt.question_id
+                HAVING COUNT(DISTINCT qt.tag_id) = ${tagIds.size()}
+            )
+          </if>
+    </select>
+
+    <select id="selectRecommendationList" resultType="com.prepdeck.question.domain.QuestionEntity">
+        SELECT *,
+               (views * 0.1 + favorites * 0.3 + interview_count * 0.5) AS heat
+        FROM interview.question q
+        WHERE q.deleted = false
+          <if test="types != null and types.size() > 0">
+            AND q.type IN
+            <foreach collection="types" item="type" open="(" separator="," close=")">
+                #{type}
+            </foreach>
+          </if>
+          <if test="excludeTitles != null and excludeTitles.size() > 0">
+            AND (q.content IS NULL OR q.content NOT IN
+            <foreach collection="excludeTitles" item="t" open="(" separator="," close=")">
+                #{t}
+            </foreach>
+            )
+          </if>
+        <choose>
+            <when test="sortBy != null and sortBy != ''">
+                <choose>
+                    <when test="order != null and order.equalsIgnoreCase('asc')">
+                ORDER BY
+                    <choose>
+                        <when test="sortBy == 'interviewCount'">q.interview_count ASC</when>
+                        <when test="sortBy == 'views'">q.views ASC</when>
+                        <when test="sortBy == 'favorites'">q.favorites ASC</when>
+                        <when test="sortBy == 'createTime'">q.create_time ASC</when>
+                        <otherwise>(q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) ASC</otherwise>
+                    </choose>
+                    </when>
+                    <otherwise>
+                ORDER BY
+                    <choose>
+                        <when test="sortBy == 'interviewCount'">q.interview_count DESC</when>
+                        <when test="sortBy == 'views'">q.views DESC</when>
+                        <when test="sortBy == 'favorites'">q.favorites DESC</when>
+                        <when test="sortBy == 'createTime'">q.create_time DESC</when>
+                        <otherwise>(q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) DESC</otherwise>
+                    </choose>
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY (q.views * 0.1 + q.favorites * 0.3 + q.interview_count * 0.5) DESC
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>

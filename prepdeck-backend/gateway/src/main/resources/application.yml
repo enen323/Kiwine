@@ -1,0 +1,83 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: prepdeck-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:192.168.100.128}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    nacos:
+      server-addr: ${NACOS_ADDR:192.168.100.128:8848}
+      config:
+        file-extension: yml
+        group: PREPDECK_GROUP
+      discovery:
+        group: PREPDECK_GROUP
+        cluster-name: DEFAULT
+    gateway:
+      routes:
+        # 用户服务
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/users/**
+
+        # 简历服务
+        - id: resume-service
+          uri: lb://resume-service
+          predicates:
+            - Path=/api/v1/resumes/**
+
+        # 面试服务
+        - id: interview-service
+          uri: lb://interview-service
+          predicates:
+            - Path=/api/v1/interviews/**
+
+        # 报告服务
+        - id: report-service
+          uri: lb://report-service
+          predicates:
+            - Path=/api/v1/reports/**
+
+        # 题库服务（题目 + 标签均由该服务提供）
+        - id: question-service
+          uri: lb://question-service
+          predicates:
+            - Path=/api/v1/questions/**,/api/v1/tags/**,,/api/v1/tags
+
+        # 配额服务
+        - id: quota-service
+          uri: lb://quota-service
+          predicates:
+            - Path=/api/v1/quota/**
+
+        # 支付服务
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payment/**
+
+        # 求职服务
+        - id: job-service
+          uri: lb://job-service
+          predicates:
+            - Path=/api/v1/applications/**,/api/v1/ai/resumes/*/cover-letters/**
+
+      # 全局默认过滤器
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin
+
+    loadbalancer:
+      nacos:
+        enabled: true
+
+  config:
+    import: optional:nacos:${spring.application.name}-${spring.profiles.active:dev}.yml?group=PREPDECK_GROUP
+
+logging:
+  level:
+    com.prepdeck: ${LOG_LEVEL:DEBUG}

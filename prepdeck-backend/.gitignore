@@ -1,0 +1,36 @@
+# === IDE ===
+.vscode/
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+
+# === Build ===
+target/
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*
+*.hprof
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Project-specific ===
+docker/            # 本地 Docker 编排，不提交
+logs/
+*.log
+
+# === Maven ===
+!/.mvn/wrapper/
+.mvn/repository/
+.mvn/
+
+# === Docs ===
+docs/
+.workbuddy

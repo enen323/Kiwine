@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.prepdeck.question.repository.DailyChallengeMapper">
+
+    <select id="findToday" resultType="com.prepdeck.question.domain.DailyChallengeEntity">
+        SELECT *
+        FROM interview.daily_challenge
+        WHERE user_id = #{userId}
+          AND challenge_date = #{today}
+          AND deleted = false
+        LIMIT 1
+    </select>
+
+    <insert id="upsert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO interview.daily_challenge
+            (id, user_id, question_id, challenge_date, completed, create_time, update_time, deleted, version)
+        VALUES (#{id}, #{userId}, #{questionId}, #{challengeDate}, #{completed}, #{createTime}, #{updateTime}, #{deleted}, #{version})
+        ON CONFLICT (user_id, challenge_date) DO NOTHING
+    </insert>
+
+</mapper>
