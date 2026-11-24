@@ -11,7 +11,7 @@
 
 - 单 Maven 模块：根 `pom.xml` 即 Spring Boot 应用（`packaging=jar` + `spring-boot-maven-plugin`）。
 - 8 个服务 + common 的源码 `git mv` 进根 `src/main/java`（包名同为 `com.prepdeck.*`，零冲突），删 9 个模块 pom、9 个启动类、整个 gateway 目录、全部测试。
-- 唯一启动类 `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")` + `@MapperScan("com.prepdeck")`。
+- 唯一启动类 `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")` + `@MapperScan(basePackages = "com.prepdeck", markerInterface = BaseMapper.class)`。
 - 网关的认证 filter 与 CORS 移植为 servlet 组件；Feign 调用改进程内 `@Component` 直调；Sentinel/Nacos 全删。
 - 数据层换 MySQL：driver、`JsonbTypeHandler`、`QuestionMapper.xml` 搜索、init SQL 全部 MySQL 化。
 - AI：删 `@ConditionalOnProperty`，缺 `DEEPSEEK_API_KEY` 启动即失败（fail fast）。
@@ -57,13 +57,13 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 - Delete: 9 个模块 `pom.xml`、9 个 `*Application.java`、9 个模块 `src/main/resources/application*.yml`、整个 `prepdeck-backend/gateway/` 目录、所有模块的 `src/test/` 目录（含 common 的）
 
 **Interfaces**:
-- `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")`、`@MapperScan("com.prepdeck")`、标准 `main`。
+- `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")`、`@MapperScan(basePackages = "com.prepdeck", markerInterface = BaseMapper.class)`（markerInterface 必须有，否则全部接口被注册为 mapper，见设计文档 §1）、标准 `main`。
 
 **Steps**:
 - [ ] 读设计文档"具体设计 §1"，按 Files 列执行 `git mv`（主源码 + mapper XML + migration SQL；`src/test` 不搬、直接删）
 - [ ] 删除 9 个 `*Application.java`、9 个模块 pom、9 个模块 `src/main/resources/application*.yml`、整个 gateway 目录
 - [ ] 重写根 `pom.xml`：`packaging=jar`；挂 `spring-boot-maven-plugin`；依赖按设计文档 §1 并集清单；删 spring-cloud BOM、alibaba BOM、nacos/sentinel/openfeign/loadbalancer、`spring-boot-starter-test`
-- [ ] 新建 `PrepDeckApplication.java`（见 Interfaces）
+- [ ] 新建 `PrepDeckApplication.java`（见 Interfaces；`@MapperScan` 必须带 `markerInterface = BaseMapper.class`）
 - [ ] 验证：`grep -rn "spring-cloud\|nacos\|sentinel\|openfeign" pom.xml` 无输出；`find . -name "*Application.java" | grep -v PrepDeckApplication` 为空；`find . -path "*/src/test" -type d` 为空；`find . -name "application*.yml" -not -path "./src/*"` 为空；`ls src/main/resources/mapper/` 有 5 个 XML；`mvn -q validate` 通过（pom 可解析）
 - [ ] Commit
 

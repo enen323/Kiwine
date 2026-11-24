@@ -53,7 +53,7 @@
 - 删除：spring-cloud-alibaba BOM、nacos/sentinel/openfeign/loadbalancer 相关依赖；若移除后无任何 spring-cloud 使用，一并删除 Spring Cloud BOM（builder 核实，见"留给 builder"）。
 - 源码搬迁（`git mv`）：`{user,resume,interview,report,question,quota,payment,job}-service/src/main/java/com/prepdeck/<svc>/**` → `src/main/java/com/prepdeck/<svc>/**`；`common` 同样处理。各模块 `src/test` 整体删除，不搬迁（见第 8 节）。包名本来都是 `com.prepdeck.*`，零冲突。
 - 删除：9 个模块目录下的 pom、9 个 `*Application.java`、整个 `gateway/` 目录。
-- 新增 `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")` + `@MapperScan("com.prepdeck")`（覆盖各服务原来的 `.mapper` / `.repository` 两种包名）。
+- 新增 `com.prepdeck.PrepDeckApplication`：`@SpringBootApplication(scanBasePackages = "com.prepdeck")` + `@MapperScan(basePackages = "com.prepdeck", markerInterface = BaseMapper.class)`（覆盖各服务原来的 `.mapper` / `.repository` 两种包名）。**必须带 `markerInterface = BaseMapper.class`**：无 markerInterface 时 MyBatis 的 `ClassPathMapperScanner` 接受包内全部接口，16 个 service 接口与 `AiClient` 都会被注册为 mapper bean，启动即 `NoUniqueBeanDefinitionException`（Task 1 review 实测结论）。
 - 现有行为保持不变的部分：`MyBatisPlusConfig` / `JacksonConfig` 今天就被各服务显式扫描（`scanBasePackages` 含 `com.prepdeck.common`），单体后同样激活；`ThreadPoolConfig` 今天就是死的（`@AutoConfiguration` 无 `AutoConfiguration.imports` 文件，`@Async` 未生效），单体后**保持死**——不在本次范围内"顺手修复"。
 
 ### 2. 配置合并（根 `src/main/resources/application.yml`）
