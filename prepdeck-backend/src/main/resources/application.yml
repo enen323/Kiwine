@@ -1,0 +1,94 @@
+server:
+  port: 8080
+
+spring:
+  ai:
+    deepseek:
+      # 无默认值：未配置 DEEPSEEK_API_KEY 时启动即失败（fail fast）
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/${DB_NAME:prepdeck}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 10000
+      max-lifetime: 1200000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: ASSIGN_ID
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+interview:
+  prompt:
+    version: "v2"
+    stages:
+      SELF_INTRO:
+        focus: "个人背景、求职动机、职业规划（禁止追问项目细节）"
+        max-questions: 3
+        forbid-topics:
+          - "项目架构"
+          - "技术选型"
+          - "个人贡献"
+          - "难点解决"
+        appendix: "self_intro_rules"
+        proactive-end: true
+      PROJECT_DEEP_DIVE:
+        focus: "项目架构设计、技术选型、个人贡献、问题解决"
+        max-questions: 8
+      TECH_ASSESSMENT:
+        focus: "技术基础、算法、系统设计"
+        max-questions: 7
+      REVERSE_QA:
+        focus: "候选人提问质量、关注点"
+        max-questions: 3
+        appendix: "reverse_qa_rules"
+    rule-snippets:
+      self_intro_rules: |
+        ---
+        # 自我介绍环节特别规则
+        当前处于「自我介绍」阶段。本轮考察重点是个人背景、求职动机、职业规划。
+        请你认真聆听候选人的自我介绍，判断是否已经获得了足够了解。
+        如果候选人介绍得已经比较充分，你可以简单回应后直接结束本轮，无需继续追问，在回复末尾加上 [ROUND_COMPLETE] 标记即可。
+        如果还有想深入了解的地方，再进行一两个追问。
+
+        ## 绝对禁止
+        - 不要追问项目架构、技术选型、个人贡献、难点解决等深挖类问题。
+        - 如果候选人提到了项目，可以简单回应（如"嗯，看到你有XX项目经验"），但不要展开追问项目细节。
+        - 项目相关问题统一留到「项目深挖」阶段再问。
+      reverse_qa_rules: |
+        ---
+        # 反问环节特别规则
+        当前处于「反问环节（候选人提问）」。在此阶段，你**不得向候选人提出任何问题**，也不要追问候选人。
+        你的唯一职责是：认真聆听候选人提出的每一个问题，然后以面试官的身份给出真实、专业、简洁的回答。
+        回答时可以适当补充一点背景或建议，但保持自然口语化，不要长篇大论。
+        当候选人没有进一步问题时，可以自然结束本轮。
+        如果你觉得候选人的问题已经聊得差不多，也可以主动结束，在回复末尾加上 [ROUND_COMPLETE] 标记即可。
+    global-boundaries: |
+      ## 阶段边界
+      - 严格遵循当前阶段的考察重点，不要提前进入其他阶段的提问模式。
+      - 例如：自我介绍阶段禁止追问项目架构、技术选型、个人贡献等深挖内容；技术考核阶段也应以当前技术问题为主，不要展开项目深挖。
+      - 每个阶段有各自的职责，请自觉守住边界。
+
+logging:
+  level:
+    com.prepdeck: ${LOG_LEVEL:DEBUG}
