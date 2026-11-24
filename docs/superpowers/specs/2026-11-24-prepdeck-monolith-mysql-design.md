@@ -148,6 +148,7 @@
 4. 旧 Nacos 上可能还有仓库里没有的 per-service `-dev.yml` 覆盖（日志级别等）——无法找回，影响仅限默认值差异；deepseek 的 key/base-url 改由本地 yml/环境变量提供。
 5. 关键词搜索改用 LIKE：失去 pg 的相关性排序，大数据量下全表扫描（已决策，见 7b）。
 6. 两个部分唯一索引不再有 DB 层保证，仅应用层检查，存在并发竞态窗口（已决策，见 7c）。
+7. 两处 SSE 路径的错误提示文案退化：删 `catch (FeignException)` 后不再有专属"AI 服务暂时不可用，请稍后重试"，落入通用"处理失败，请重试"（`interview/service/impl/InterviewServiceImpl.java:355-362`、`:603-610`，Task 4 审查发现）。
 
 ## 留给 builder 的事项
 
