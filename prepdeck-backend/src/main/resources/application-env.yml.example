@@ -1,9 +1,11 @@
 # PrepDeck 本地环境配置模板。
 #
 # 用法：复制为同目录的 application-env.yml 并填写必填项：
-#   cp prepdeck-backend/application-env.yml.example prepdeck-backend/application-env.yml
-# application.yml 通过 spring.config.import 导入 application-env.yml；
-# 该文件含密钥、已被 .gitignore 忽略，禁止提交（提交的是本 .example）。
+#   cp prepdeck-backend/src/main/resources/application-env.yml.example \
+#      prepdeck-backend/src/main/resources/application-env.yml
+# application.yml 通过 spring.config.import: classpath:application-env.yml 导入；
+# 该文件含密钥、已被 .gitignore 忽略，禁止提交（提交的是本 .example）；
+# 它会随构建打进 jar，分发 jar 前先删除。
 #
 # 优先级：操作系统环境变量 > application-env.yml > 代码/配置里的默认值。
 

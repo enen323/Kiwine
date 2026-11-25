@@ -17,7 +17,7 @@ PrepDeck：AI 模拟面试平台。后端 `prepdeck-backend/`：Spring Boot 3.3.
 ## 后端结构（prepdeck-backend/src/main/java/com/prepdeck）
 
 - 域：`user/ resume/ interview/ report/ question/ quota/ payment/ job/` × 8，加 `common/`（config/filter/handler/util/constant/model/enums/exception/dto/ai）。
-- 环境配置：`prepdeck-backend/application-env.yml`（git 忽略，模板同目录 `.example`）由 `application.yml` 的 `spring.config.import` 导入，`DEEPSEEK_API_KEY`/`JWT_SECRET` 必填；代码里 `System.getenv()` 直读的变量（`GATEWAY_SECRET`/`ALLOWED_ORIGINS`）统一经 `common/config/SpringEnvironmentHolder` 解析（系统环境变量 > 配置文件 > 代码默认值），新增配置别写裸 `System.getenv()`。
+- 环境配置：`prepdeck-backend/src/main/resources/application-env.yml`（git 忽略，模板同目录 `.example`，classpath 导入）由 `application.yml` 的 `spring.config.import` 导入，`DEEPSEEK_API_KEY`/`JWT_SECRET` 必填；代码里 `System.getenv()` 直读的变量（`GATEWAY_SECRET`/`ALLOWED_ORIGINS`）统一经 `common/config/SpringEnvironmentHolder` 解析（系统环境变量 > 配置文件 > 代码默认值），新增配置别写裸 `System.getenv()`。
 - 结构宪章（一域一形状，硬约束），每个域长成：
   - `controller/`：只做参数校验与编排，不写业务
   - `service/`：`XxxService` 接口 + `XxxServiceImpl` **平铺**（禁止 `impl/` 子包）
