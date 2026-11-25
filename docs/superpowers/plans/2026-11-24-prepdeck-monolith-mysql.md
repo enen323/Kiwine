@@ -161,6 +161,22 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 
 ---
 
+### Task 5.5：修复客户端 bean 名冲突（Task 5 实测发现，插入任务）
+
+**Files**:
+- Modify: 6 个客户端类加显式 bean 名——`prepdeck-backend/src/main/java/com/prepdeck/payment/client/QuotaClient.java`、`interview/client/QuotaClient.java`、`resume/client/QuotaClient.java`、`job/client/QuotaClient.java`、`interview/client/ResumeClient.java`、`job/client/ResumeClient.java`
+- Verify: 其余文件在 `git diff --stat` 中不出现
+
+**Steps**:
+- [ ] 上述 6 个 `@Component` 类加显式且互不重复的 bean 名（如 `paymentQuotaClient`、`interviewQuotaClient`、`resumeQuotaClient`、`jobQuotaClient`、`interviewResumeClient`、`jobResumeClient`）
+- [ ] 验证：`mvn -q clean compile` exit 0；`grep -rn '@Component("' --include="*.java" src/main/java` 中 6 个客户端 bean 名无重名
+- [ ] 运行时验证：先 `mvn clean compile`（清掉 `target/classes` 里 31 个陈旧 class，否则运行期组件扫描会撞幽灵冲突），不设 `DEEPSEEK_API_KEY` 启动 → 报 `Could not resolve placeholder 'DEEPSEEK_API_KEY'`（而非 bean 冲突）；设 `DEEPSEEK_API_KEY=dummy` 启动 → `Started PrepDeckApplication`
+- [ ] Commit
+
+**依赖**：Task 4、Task 5。
+
+---
+
 ### Task 6：MySQL 数据层代码
 
 **Files**:
