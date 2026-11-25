@@ -7,7 +7,7 @@ PrepDeck：AI 模拟面试平台。后端 `prepdeck-backend/`：Spring Boot 3.3.
 - 无自动化测试：不写、不跑、不补。验证 = `cd prepdeck-backend && mvn clean package` 编译通过 + 启动 + 手工验收。
 - AI fail fast：未配 `DEEPSEEK_API_KEY` 启动必须失败；保持现状，禁止 NoOp/降级 bean。
 - 前后端契约固定：控制器路径 `/api/v1/**` + `Result<T>` 响应体，后端改动保持不动。
-- 不为既有栈已覆盖的需求新增依赖；确需新依赖是显式决策——先想清楚为什么现有栈不够，再动 pom。当前是单进程单体，不引入 nacos/sentinel/feign/gateway 等分布式基建依赖；项目壮大后的架构演进（不一定是微服务）由用户显式决策发起，不在日常开发里顺手做。
+- 不为既有栈已覆盖的需求新增依赖；确需新依赖是显式决策——先想清楚为什么现有栈不够，再动 pom。
 - 改动落在既有分层与命名内；职责外的重构清理不做。
 
 ## 命令
