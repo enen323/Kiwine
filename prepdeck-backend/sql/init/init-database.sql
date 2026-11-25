@@ -1,596 +1,459 @@
 -- ============================================================
 -- MianBa AI Interview Platform - Phase 1 MVP
--- Database: PostgreSQL 16+
+-- Database: MySQL 8.0+
 -- Init Script - Creates all Phase 1 tables, indexes, and comments
 -- ============================================================
 
 -- ============================================================
--- Database creation (execute as superuser if needed)
+-- PG -> MySQL conversion notes (design: 2026-11-24-prepdeck-monolith-mysql, §7)
+--   - interview schema dropped: all tables live directly in the prepdeck database
+--   - snowflake sequences dropped: MyBatis-Plus ASSIGN_ID assigns IDs in the app layer
+--   - JSONB -> JSON, TIMESTAMP -> DATETIME
+--   - update_time is app-maintained (PG's 14 auto-update triggers are gone,
+--     no ON UPDATE CURRENT_TIMESTAMP by design — known difference #8)
+--   - question.search_vector + GIN index + trigger dropped (full-text search
+--     moved to LIKE in the mapper — design §7b)
+--   - the two PG partial unique indexes are NOT built (design §7c, see notes below)
+--   - job-service tables absorbed from V1__create_job_tables.sql
 -- ============================================================
--- CREATE DATABASE mianba WITH ENCODING 'UTF8' LC_COLLATE 'en_US.UTF-8' LC_CTYPE 'en_US.UTF-8';
 
--- ============================================================
--- Schema
--- ============================================================
-CREATE SCHEMA IF NOT EXISTS interview;
-
--- ============================================================
--- Sequences for snowflake/assign-id compatibility
--- ============================================================
-CREATE SEQUENCE IF NOT EXISTS interview.seq_user_account START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_resume START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_interview_record START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_interview_message START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_user_quota START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_payment_record START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_interview_question_score START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_question START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_tag START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_question_tag START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_user_favorite START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_daily_challenge START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
-CREATE SEQUENCE IF NOT EXISTS interview.seq_user_practice_record START WITH 1 INCREMENT BY 1 NO MINVALUE NO MAXVALUE CACHE 1;
+CREATE DATABASE IF NOT EXISTS prepdeck CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE prepdeck;
 
 -- ============================================================
 -- 1. user_account — User accounts
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.user_account (
+CREATE TABLE IF NOT EXISTS user_account (
     -- Primary key (ASSIGN_ID / snowflake)
     id              BIGINT          PRIMARY KEY,
 
     -- Business fields
-    phone           VARCHAR(20)     NOT NULL,
-    password        VARCHAR(256)    NOT NULL,
-    nickname        VARCHAR(50),
-    avatar_url      VARCHAR(512),
-    fingerprint     VARCHAR(255),
-    target_position VARCHAR(100),
-    target_company  VARCHAR(50),
-    status          SMALLINT        NOT NULL DEFAULT 1,
-    last_login_time TIMESTAMP,
-    ai_settings     JSONB,
+    phone           VARCHAR(20)     NOT NULL COMMENT 'Mobile phone number, used as login identifier',
+    password        VARCHAR(256)    NOT NULL COMMENT 'Bcrypt-hashed password',
+    nickname        VARCHAR(50)     COMMENT 'Display nickname',
+    avatar_url      VARCHAR(512)    COMMENT 'Avatar image URL or object storage key',
+    fingerprint     VARCHAR(255)    COMMENT 'Device fingerprint (no DB-level unique index — see "Partial unique indexes" below)',
+    target_position VARCHAR(100)    COMMENT 'Target interview position, e.g. Java Backend',
+    target_company  VARCHAR(50)     COMMENT 'Target company, e.g. Alibaba, Tencent',
+    status          SMALLINT        NOT NULL DEFAULT 1 COMMENT 'Account status: 1=active, 0=locked, -1=banned',
+    last_login_time DATETIME        COMMENT 'Timestamp of the most recent successful login',
+    ai_settings     JSON            COMMENT 'User AI settings (model, temperature, prompt) as JSON',
 
     -- Common fields
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
-    version         INTEGER         NOT NULL DEFAULT 0
-);
-
-COMMENT ON TABLE  interview.user_account IS 'User accounts — phone login, profile, and career target';
-COMMENT ON COLUMN interview.user_account.phone IS 'Mobile phone number, used as login identifier';
-COMMENT ON COLUMN interview.user_account.password IS 'Bcrypt-hashed password';
-COMMENT ON COLUMN interview.user_account.nickname IS 'Display nickname';
-COMMENT ON COLUMN interview.user_account.avatar_url IS 'Avatar image URL or object storage key';
-COMMENT ON COLUMN interview.user_account.target_position IS 'Target interview position, e.g. Java Backend';
-COMMENT ON COLUMN interview.user_account.target_company IS 'Target company, e.g. Alibaba, Tencent';
-COMMENT ON COLUMN interview.user_account.status IS 'Account status: 1=active, 0=locked, -1=banned';
-COMMENT ON COLUMN interview.user_account.last_login_time IS 'Timestamp of the most recent successful login';
-COMMENT ON COLUMN interview.user_account.create_time IS 'Record creation timestamp';
-COMMENT ON COLUMN interview.user_account.update_time IS 'Last update timestamp';
-COMMENT ON COLUMN interview.user_account.deleted IS 'Soft-delete flag: FALSE=active, TRUE=deleted';
-COMMENT ON COLUMN interview.user_account.version IS 'Optimistic locking version counter';
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation timestamp',
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Last update timestamp (app-maintained, no ON UPDATE)',
+    deleted         BOOLEAN         NOT NULL DEFAULT FALSE COMMENT 'Soft-delete flag: FALSE=active, TRUE=deleted',
+    version         INTEGER         NOT NULL DEFAULT 0 COMMENT 'Optimistic locking version counter'
+) COMMENT = 'User accounts — phone login, profile, and career target';
 
 -- ============================================================
 -- 2. user_quota — User interview and resume-chat quotas
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.user_quota (
-    user_id               BIGINT          PRIMARY KEY,
-    interview_free_used   INT            NOT NULL DEFAULT 0,
-    resume_chat_free_used INT            NOT NULL DEFAULT 0,
-    interview_paid        INT            NOT NULL DEFAULT 0,
-    resume_chat_paid      INT            NOT NULL DEFAULT 0,
-    create_time           TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time           TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted               BOOLEAN        NOT NULL DEFAULT FALSE,
-    version               INT            NOT NULL DEFAULT 1
-);
-
-COMMENT ON TABLE  interview.user_quota IS 'User quota counters — tracks free and paid usage for interviews and resume chat';
-COMMENT ON COLUMN interview.user_quota.user_id IS 'Owner user ID, FK to user_account';
-COMMENT ON COLUMN interview.user_quota.interview_free_used IS 'Number of free interview sessions consumed';
-COMMENT ON COLUMN interview.user_quota.resume_chat_free_used IS 'Number of free resume-chat sessions consumed';
-COMMENT ON COLUMN interview.user_quota.interview_paid IS 'Number of paid interview sessions available';
-COMMENT ON COLUMN interview.user_quota.resume_chat_paid IS 'Number of paid resume-chat sessions available';
+CREATE TABLE IF NOT EXISTS user_quota (
+    user_id               BIGINT          PRIMARY KEY COMMENT 'Owner user ID, FK to user_account',
+    interview_free_used   INT             NOT NULL DEFAULT 0 COMMENT 'Number of free interview sessions consumed',
+    resume_chat_free_used INT             NOT NULL DEFAULT 0 COMMENT 'Number of free resume-chat sessions consumed',
+    interview_paid        INT             NOT NULL DEFAULT 0 COMMENT 'Number of paid interview sessions available',
+    resume_chat_paid      INT             NOT NULL DEFAULT 0 COMMENT 'Number of paid resume-chat sessions available',
+    create_time           DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time           DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted               BOOLEAN         NOT NULL DEFAULT FALSE,
+    version               INT             NOT NULL DEFAULT 1
+) COMMENT = 'User quota counters — tracks free and paid usage for interviews and resume chat';
 
 -- ============================================================
 -- 3. resume — User resumes
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.resume (
+CREATE TABLE IF NOT EXISTS resume (
     -- Primary key (ASSIGN_ID / snowflake)
     id              BIGINT          PRIMARY KEY,
 
     -- Business fields
-    user_id         BIGINT          NOT NULL,
-    file_name       VARCHAR(255),
-    file_url        VARCHAR(512),
-    content_text    TEXT,
-    content_json    JSONB,
-    is_active       BOOLEAN         NOT NULL DEFAULT FALSE,
+    user_id         BIGINT          NOT NULL COMMENT 'Owner user ID, FK to user_account',
+    file_name       VARCHAR(255)    COMMENT 'Original uploaded file name',
+    file_url        VARCHAR(512)    COMMENT 'File storage URL or object storage key',
+    content_text    TEXT            COMMENT 'Full text extracted from the resume file (OCR/parsed)',
+    content_json    JSON            COMMENT 'Structured resume data in JSON format',
+    is_active       BOOLEAN         NOT NULL DEFAULT FALSE COMMENT 'Active resume flag: only one resume per user should be active at a time',
+
+    -- Phase 1 additions: resume builder columns
+    -- (originally added via ALTER TABLE ADD COLUMN IF NOT EXISTS,
+    --  which MySQL does not support — folded into the table definition)
+    title           VARCHAR(255)    COMMENT 'Resume display title',
+    template        VARCHAR(64)     NOT NULL DEFAULT 'classic' COMMENT 'Template name, e.g. classic, modern',
+    language        VARCHAR(8)      NOT NULL DEFAULT 'zh' COMMENT 'Resume language, e.g. zh, en',
+    theme_config    JSON            COMMENT 'JSON: color/font/spacing/margin config',
+    is_public       BOOLEAN         NOT NULL DEFAULT FALSE COMMENT 'Public share flag',
+    share_token     VARCHAR(64)     COMMENT 'Unique share token for public access',
+    share_password  VARCHAR(255)    COMMENT 'BCrypt-hashed share password',
+    view_count      INTEGER         NOT NULL DEFAULT 0 COMMENT 'Public view counter',
 
     -- Common fields
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0,
 
     -- Foreign key
-    CONSTRAINT fk_resume_user FOREIGN KEY (user_id) REFERENCES interview.user_account(id)
-);
-
-COMMENT ON TABLE  interview.resume IS 'User resumes — uploaded files and parsed content';
-COMMENT ON COLUMN interview.resume.user_id IS 'Owner user ID, FK to user_account';
-COMMENT ON COLUMN interview.resume.file_name IS 'Original uploaded file name';
-COMMENT ON COLUMN interview.resume.file_url IS 'File storage URL or object storage key';
-COMMENT ON COLUMN interview.resume.content_text IS 'Full text extracted from the resume file (OCR/parsed)';
-COMMENT ON COLUMN interview.resume.content_json IS 'Structured resume data in JSONB format';
-COMMENT ON COLUMN interview.resume.is_active IS 'Active resume flag: only one resume per user should be active at a time';
-
--- Phase 1 additions: resume builder columns
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS title          VARCHAR(255);
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS template       VARCHAR(64)  NOT NULL DEFAULT 'classic';
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS language       VARCHAR(8)   NOT NULL DEFAULT 'zh';
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS theme_config   JSONB;
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS is_public      BOOLEAN      NOT NULL DEFAULT FALSE;
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS share_token    VARCHAR(64);
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS share_password VARCHAR(255);
-ALTER TABLE interview.resume ADD COLUMN IF NOT EXISTS view_count     INTEGER      NOT NULL DEFAULT 0;
-
-COMMENT ON COLUMN interview.resume.title IS 'Resume display title';
-COMMENT ON COLUMN interview.resume.template IS 'Template name, e.g. classic, modern';
-COMMENT ON COLUMN interview.resume.language IS 'Resume language, e.g. zh, en';
-COMMENT ON COLUMN interview.resume.theme_config IS 'JSON: color/font/spacing/margin config';
-COMMENT ON COLUMN interview.resume.is_public IS 'Public share flag';
-COMMENT ON COLUMN interview.resume.share_token IS 'Unique share token for public access';
-COMMENT ON COLUMN interview.resume.share_password IS 'BCrypt-hashed share password';
-COMMENT ON COLUMN interview.resume.view_count IS 'Public view counter';
+    CONSTRAINT fk_resume_user FOREIGN KEY (user_id) REFERENCES user_account(id)
+) COMMENT = 'User resumes — uploaded files and parsed content';
 
 -- ============================================================
 -- 2b. resume_section — Resume structured sections
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.resume_section (
+CREATE TABLE IF NOT EXISTS resume_section (
     id              BIGINT          PRIMARY KEY,
 
     resume_id       BIGINT          NOT NULL,
-    type            VARCHAR(32)     NOT NULL,
+    type            VARCHAR(32)     NOT NULL COMMENT 'Section type: personalInfo, summary, education, experience, project, skills, certification, language, publication, custom',
     title           VARCHAR(255),
     sort_order      INT,
     visible         BOOLEAN         NOT NULL DEFAULT TRUE,
-    content         JSONB,
+    content         JSON            COMMENT 'JSON content varying by section type',
 
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0,
 
-    CONSTRAINT fk_resume_section_resume FOREIGN KEY (resume_id) REFERENCES interview.resume(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_resume_section_rid ON interview.resume_section(resume_id);
-COMMENT ON TABLE  interview.resume_section IS 'Resume sections — structured blocks (personalInfo, education, etc.)';
-COMMENT ON COLUMN interview.resume_section.type IS 'Section type: personalInfo, summary, education, experience, project, skills, certification, language, publication, custom';
-COMMENT ON COLUMN interview.resume_section.content IS 'JSON content varying by section type';
+    CONSTRAINT fk_resume_section_resume FOREIGN KEY (resume_id) REFERENCES resume(id)
+) COMMENT = 'Resume sections — structured blocks (personalInfo, education, etc.)';
 
 -- ============================================================
 -- 3. interview_record — Interview sessions
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.interview_record (
+CREATE TABLE IF NOT EXISTS interview_record (
     -- Primary key (ASSIGN_ID / snowflake)
     id              BIGINT          PRIMARY KEY,
 
     -- Business fields
     resume_id       BIGINT,
-    user_id         BIGINT          NOT NULL,
-    company         VARCHAR(50),
-    position        VARCHAR(100),
-    status          VARCHAR(20)     NOT NULL DEFAULT 'CREATED',
-    current_stage   VARCHAR(30)     NOT NULL DEFAULT 'SELF_INTRO',
-    stage_order     INTEGER         NOT NULL DEFAULT 0,
-    total_questions INTEGER         NOT NULL DEFAULT 0,
+    user_id         BIGINT          NOT NULL COMMENT 'Candidate user ID, FK to user_account',
+    company         VARCHAR(50)     COMMENT 'Target company for this interview session',
+    position        VARCHAR(100)    COMMENT 'Target position for this interview session',
+    status          VARCHAR(20)     NOT NULL DEFAULT 'CREATED' COMMENT 'Session status: CREATED, IN_PROGRESS, COMPLETED, TERMINATED',
+    current_stage   VARCHAR(30)     NOT NULL DEFAULT 'SELF_INTRO' COMMENT 'Current interview stage: SELF_INTRO, PROJECT_DEEP_DIVE, TECH_ASSESSMENT, REVERSE_QA, COMPLETED',
+    stage_order     INTEGER         NOT NULL DEFAULT 0 COMMENT 'Order of the current stage within the interview flow (0-based)',
+    total_questions INTEGER         NOT NULL DEFAULT 0 COMMENT 'Total number of questions asked in this session',
 
     -- Scoring (nullable until evaluation completes)
-    score_total     INTEGER,
-    score_tech      INTEGER,
-    score_expression INTEGER,
-    score_project   INTEGER,
-    score_logic     INTEGER,
-    score_adaptability INTEGER,
-    suggestion      TEXT,
+    score_total     INTEGER         COMMENT 'Overall score (0-100)',
+    score_tech      INTEGER         COMMENT 'Technical foundation score (0-100)',
+    score_expression INTEGER        COMMENT 'Expression and communication score (0-100)',
+    score_project   INTEGER         COMMENT 'Project experience score (0-100)',
+    score_logic     INTEGER         COMMENT 'Logical thinking score (0-100)',
+    score_adaptability INTEGER      COMMENT 'Adaptability score (0-100)',
+    suggestion      TEXT            COMMENT 'AI-generated improvement suggestion text',
 
     -- Timing
-    started_at      TIMESTAMP,
-    completed_at    TIMESTAMP,
-    duration_seconds INTEGER,
+    started_at      DATETIME        COMMENT 'When the interview session started',
+    completed_at    DATETIME        COMMENT 'When the interview session completed or was terminated',
+    duration_seconds INTEGER        COMMENT 'Total session duration in seconds',
 
     -- Common fields
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0,
 
     -- Foreign key
-    CONSTRAINT fk_interview_record_user FOREIGN KEY (user_id) REFERENCES interview.user_account(id)
-);
-
-COMMENT ON TABLE  interview.interview_record IS 'Interview sessions — each row is one complete interview attempt';
-COMMENT ON COLUMN interview.interview_record.user_id IS 'Candidate user ID, FK to user_account';
-COMMENT ON COLUMN interview.interview_record.company IS 'Target company for this interview session';
-COMMENT ON COLUMN interview.interview_record.position IS 'Target position for this interview session';
-COMMENT ON COLUMN interview.interview_record.status IS 'Session status: CREATED, IN_PROGRESS, COMPLETED, TERMINATED';
-COMMENT ON COLUMN interview.interview_record.current_stage IS 'Current interview stage: SELF_INTRO, PROJECT_DEEP_DIVE, TECH_ASSESSMENT, REVERSE_QA, COMPLETED';
-COMMENT ON COLUMN interview.interview_record.stage_order IS 'Order of the current stage within the interview flow (0-based)';
-COMMENT ON COLUMN interview.interview_record.total_questions IS 'Total number of questions asked in this session';
-COMMENT ON COLUMN interview.interview_record.score_total IS 'Overall score (0-100)';
-COMMENT ON COLUMN interview.interview_record.score_tech IS 'Technical foundation score (0-100)';
-COMMENT ON COLUMN interview.interview_record.score_expression IS 'Expression and communication score (0-100)';
-COMMENT ON COLUMN interview.interview_record.score_project IS 'Project experience score (0-100)';
-COMMENT ON COLUMN interview.interview_record.score_logic IS 'Logical thinking score (0-100)';
-COMMENT ON COLUMN interview.interview_record.score_adaptability IS 'Adaptability score (0-100)';
-COMMENT ON COLUMN interview.interview_record.suggestion IS 'AI-generated improvement suggestion text';
-COMMENT ON COLUMN interview.interview_record.started_at IS 'When the interview session started';
-COMMENT ON COLUMN interview.interview_record.completed_at IS 'When the interview session completed or was terminated';
-COMMENT ON COLUMN interview.interview_record.duration_seconds IS 'Total session duration in seconds';
+    CONSTRAINT fk_interview_record_user FOREIGN KEY (user_id) REFERENCES user_account(id)
+) COMMENT = 'Interview sessions — each row is one complete interview attempt';
 
 -- ============================================================
 -- 4. interview_message — Chat messages in interviews
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.interview_message (
+CREATE TABLE IF NOT EXISTS interview_message (
     -- Primary key (ASSIGN_ID / snowflake)
     id              BIGINT          PRIMARY KEY,
 
     -- Business fields
-    interview_id    BIGINT          NOT NULL,
-    role            VARCHAR(10)     NOT NULL,
-    content         TEXT            NOT NULL,
-    question_type   VARCHAR(30),
-    sequence_num    INTEGER         NOT NULL,
-    token_count     INTEGER         NOT NULL DEFAULT 0,
-    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    interview_id    BIGINT          NOT NULL COMMENT 'Parent interview session ID, FK to interview_record',
+    role            VARCHAR(10)     NOT NULL COMMENT 'Message sender: AI or USER',
+    content         TEXT            NOT NULL COMMENT 'Message content text (markdown supported for AI messages)',
+    question_type   VARCHAR(30)     COMMENT 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA',
+    sequence_num    INTEGER         NOT NULL COMMENT 'Sequential message number within the interview (0-based)',
+    token_count     INTEGER         NOT NULL DEFAULT 0 COMMENT 'Number of tokens in this message (for AI usage tracking)',
+    created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     -- Common fields (minimal — interview messages have different lifecycle needs)
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0,
 
     -- Foreign key
-    CONSTRAINT fk_interview_message_record FOREIGN KEY (interview_id) REFERENCES interview.interview_record(id)
-);
-
-COMMENT ON TABLE  interview.interview_message IS 'Chat messages within an interview session — questions and answers';
-COMMENT ON COLUMN interview.interview_message.interview_id IS 'Parent interview session ID, FK to interview_record';
-COMMENT ON COLUMN interview.interview_message.role IS 'Message sender: AI or USER';
-COMMENT ON COLUMN interview.interview_message.content IS 'Message content text (markdown supported for AI messages)';
-COMMENT ON COLUMN interview.interview_message.question_type IS 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA';
-COMMENT ON COLUMN interview.interview_message.sequence_num IS 'Sequential message number within the interview (0-based)';
-COMMENT ON COLUMN interview.interview_message.token_count IS 'Number of tokens in this message (for AI usage tracking)';
+    CONSTRAINT fk_interview_message_record FOREIGN KEY (interview_id) REFERENCES interview_record(id)
+) COMMENT = 'Chat messages within an interview session — questions and answers';
 
 -- ============================================================
 -- 5. payment_record — WeChat Pay payment transactions
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.payment_record (
+CREATE TABLE IF NOT EXISTS payment_record (
     id               BIGINT          PRIMARY KEY,
-    user_id          BIGINT          NOT NULL,
-    amount           DECIMAL(10,2)   NOT NULL,
-    service_type     VARCHAR(20)     NOT NULL,
-    status           VARCHAR(20)     NOT NULL,
-    wechat_trade_no  VARCHAR(64),
-    create_time      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id          BIGINT          NOT NULL COMMENT 'Payer user ID, FK to user_account',
+    amount           DECIMAL(10,2)   NOT NULL COMMENT 'Payment amount in CNY',
+    service_type     VARCHAR(20)     NOT NULL COMMENT 'Service type: INTERVIEW or RESUME_CHAT',
+    status           VARCHAR(20)     NOT NULL COMMENT 'Payment status: PENDING, SUCCESS, FAILED, REFUNDED',
+    wechat_trade_no  VARCHAR(64)     COMMENT 'WeChat Pay transaction number',
+    create_time      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted          BOOLEAN         NOT NULL DEFAULT FALSE,
     version          INT             NOT NULL DEFAULT 1
-);
-
-COMMENT ON TABLE  interview.payment_record IS 'WeChat Pay payment records — tracks quota purchase transactions';
-COMMENT ON COLUMN interview.payment_record.user_id IS 'Payer user ID, FK to user_account';
-COMMENT ON COLUMN interview.payment_record.amount IS 'Payment amount in CNY';
-COMMENT ON COLUMN interview.payment_record.service_type IS 'Service type: INTERVIEW or RESUME_CHAT';
-COMMENT ON COLUMN interview.payment_record.status IS 'Payment status: PENDING, SUCCESS, FAILED, REFUNDED';
-COMMENT ON COLUMN interview.payment_record.wechat_trade_no IS 'WeChat Pay transaction number';
+) COMMENT = 'WeChat Pay payment records — tracks quota purchase transactions';
 
 -- ============================================================
 -- 6. interview_question_score — Per-question scoring in interviews
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.interview_question_score (
-    id                  BIGINT          PRIMARY KEY,
-    interview_id        BIGINT          NOT NULL,
-    message_id          BIGINT          NOT NULL,
-    question_type       VARCHAR(32)     NOT NULL,
-    question_description TEXT          NOT NULL,
-    score               INTEGER         NOT NULL,
-    feedback            TEXT,
-    create_time         TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time         TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted             BOOLEAN         NOT NULL DEFAULT FALSE,
-    version             INTEGER         NOT NULL DEFAULT 1
-);
-
-COMMENT ON TABLE  interview.interview_question_score IS 'Per-question evaluation scores within an interview session';
-COMMENT ON COLUMN interview.interview_question_score.interview_id IS 'Parent interview session ID, FK to interview_record';
-COMMENT ON COLUMN interview.interview_question_score.message_id IS 'Parent message ID, FK to interview_message';
-COMMENT ON COLUMN interview.interview_question_score.question_type IS 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA';
-COMMENT ON COLUMN interview.interview_question_score.question_description IS 'The question text that was scored';
-COMMENT ON COLUMN interview.interview_question_score.score IS 'Score for this question (0-100)';
-COMMENT ON COLUMN interview.interview_question_score.feedback IS 'AI-generated feedback for this specific answer';
+CREATE TABLE IF NOT EXISTS interview_question_score (
+    id                   BIGINT          PRIMARY KEY,
+    interview_id         BIGINT          NOT NULL COMMENT 'Parent interview session ID, FK to interview_record',
+    message_id           BIGINT          NOT NULL COMMENT 'Parent message ID, FK to interview_message',
+    question_type        VARCHAR(32)     NOT NULL COMMENT 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA',
+    question_description TEXT            NOT NULL COMMENT 'The question text that was scored',
+    score                INTEGER         NOT NULL COMMENT 'Score for this question (0-100)',
+    feedback             TEXT            COMMENT 'AI-generated feedback for this specific answer',
+    create_time          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
+    version              INTEGER         NOT NULL DEFAULT 1
+) COMMENT = 'Per-question evaluation scores within an interview session';
 
 -- ============================================================
 -- 7. question — Question bank
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.question (
+-- NOTE: the PG search_vector column, its GIN index and its
+-- setweight/to_tsvector trigger are intentionally absent (design §7b).
+-- Full-text search is done with LIKE in QuestionMapper.xml.
+CREATE TABLE IF NOT EXISTS question (
     id              BIGINT          PRIMARY KEY,
-    title           VARCHAR(200)    NOT NULL,
-    content         TEXT            NOT NULL,
-    answer          JSONB           NOT NULL DEFAULT '{}'::jsonb,
-    type            VARCHAR(20)     NOT NULL DEFAULT 'SCENARIO',
-    difficulty      VARCHAR(10)     NOT NULL DEFAULT 'MEDIUM',
-    easy_mistake    VARCHAR(20)     NOT NULL DEFAULT 'NORMAL',
-    interview_count INTEGER         NOT NULL DEFAULT 0,
-    views           INTEGER         NOT NULL DEFAULT 0,
-    favorites       INTEGER         NOT NULL DEFAULT 0,
-    search_vector   TSVECTOR,
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    title           VARCHAR(200)    NOT NULL COMMENT 'Question title/summary',
+    content         TEXT            NOT NULL COMMENT 'Full question description',
+    answer          JSON            NOT NULL DEFAULT ('{}') COMMENT 'JSON: { summary, analysis, code }',
+    type            VARCHAR(20)     NOT NULL DEFAULT 'SCENARIO' COMMENT 'SCENARIO / ALGORITHM / SYSTEM_DESIGN / BEHAVIORAL / LANGUAGE',
+    difficulty      VARCHAR(10)     NOT NULL DEFAULT 'MEDIUM' COMMENT 'EASY / MEDIUM / HARD',
+    easy_mistake    VARCHAR(20)     NOT NULL DEFAULT 'NORMAL' COMMENT 'NORMAL / EASY_MISTAKE / HIGH_MISTAKE',
+    interview_count INTEGER         NOT NULL DEFAULT 0 COMMENT 'Number of times asked in real interviews',
+    views           INTEGER         NOT NULL DEFAULT 0 COMMENT 'View count',
+    favorites       INTEGER         NOT NULL DEFAULT 0 COMMENT 'Favorite count',
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0
-);
-
-COMMENT ON TABLE  interview.question IS 'Question bank — covers scenarios, algorithms, system design, behavioral, and language questions';
-COMMENT ON COLUMN interview.question.title IS 'Question title/summary';
-COMMENT ON COLUMN interview.question.content IS 'Full question description';
-COMMENT ON COLUMN interview.question.answer IS 'JSON: { summary, analysis, code }';
-COMMENT ON COLUMN interview.question.type IS 'SCENARIO / ALGORITHM / SYSTEM_DESIGN / BEHAVIORAL / LANGUAGE';
-COMMENT ON COLUMN interview.question.difficulty IS 'EASY / MEDIUM / HARD';
-COMMENT ON COLUMN interview.question.easy_mistake IS 'NORMAL / EASY_MISTAKE / HIGH_MISTAKE';
-COMMENT ON COLUMN interview.question.interview_count IS 'Number of times asked in real interviews';
-COMMENT ON COLUMN interview.question.views IS 'View count';
-COMMENT ON COLUMN interview.question.favorites IS 'Favorite count';
-COMMENT ON COLUMN interview.question.search_vector IS 'Full-text search vector (auto-maintained by trigger)';
+) COMMENT = 'Question bank — covers scenarios, algorithms, system design, behavioral, and language questions';
 
 -- ============================================================
 -- 8. tag — Predefined tags for questions
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.tag (
+CREATE TABLE IF NOT EXISTS tag (
     id          BIGINT          PRIMARY KEY,
-    name        VARCHAR(50)     NOT NULL UNIQUE,
-    description VARCHAR(200),
-    create_time TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    name        VARCHAR(50)     NOT NULL UNIQUE COMMENT 'Tag display name (unique)',
+    description VARCHAR(200)    COMMENT 'Tag description',
+    create_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted     BOOLEAN         NOT NULL DEFAULT FALSE,
     version     INTEGER         NOT NULL DEFAULT 0
-);
-
-COMMENT ON TABLE  interview.tag IS 'Predefined tags for categorizing questions';
-COMMENT ON COLUMN interview.tag.name IS 'Tag display name (unique)';
-COMMENT ON COLUMN interview.tag.description IS 'Tag description';
+) COMMENT = 'Predefined tags for categorizing questions';
 
 -- ============================================================
 -- 9. question_tag — Question-to-tag mapping (many-to-many)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.question_tag (
+CREATE TABLE IF NOT EXISTS question_tag (
     question_id BIGINT NOT NULL,
     tag_id      BIGINT NOT NULL,
     PRIMARY KEY (question_id, tag_id)
-);
-
-COMMENT ON TABLE  interview.question_tag IS 'Question-to-tag many-to-many mapping';
+) COMMENT = 'Question-to-tag many-to-many mapping';
 
 -- ============================================================
 -- 10. user_favorite — User favorite/bookmark questions
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.user_favorite (
+CREATE TABLE IF NOT EXISTS user_favorite (
     id          BIGINT          PRIMARY KEY,
-    user_id     BIGINT          NOT NULL,
-    question_id BIGINT          NOT NULL,
-    create_time TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id     BIGINT          NOT NULL COMMENT 'Owner user ID',
+    question_id BIGINT          NOT NULL COMMENT 'Favorited question ID',
+    create_time DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted     BOOLEAN         NOT NULL DEFAULT FALSE,
     version     INTEGER         NOT NULL DEFAULT 0,
     UNIQUE (user_id, question_id)
-);
-
-COMMENT ON TABLE  interview.user_favorite IS 'User favorite/bookmark questions';
-COMMENT ON COLUMN interview.user_favorite.user_id IS 'Owner user ID';
-COMMENT ON COLUMN interview.user_favorite.question_id IS 'Favorited question ID';
+) COMMENT = 'User favorite/bookmark questions';
 
 -- ============================================================
 -- 11. daily_challenge — Daily challenge record per user
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.daily_challenge (
-    id            BIGINT      PRIMARY KEY,
-    user_id       BIGINT      NOT NULL,
-    question_id   BIGINT      NOT NULL,
-    challenge_date DATE       NOT NULL,
-    completed     BOOLEAN     NOT NULL DEFAULT FALSE,
-    create_time   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time   TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted       BOOLEAN     NOT NULL DEFAULT FALSE,
-    version       INTEGER     NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS daily_challenge (
+    id             BIGINT      PRIMARY KEY,
+    user_id        BIGINT      NOT NULL COMMENT 'Owner user ID',
+    question_id    BIGINT      NOT NULL COMMENT 'Assigned question ID',
+    challenge_date DATE        NOT NULL COMMENT 'Challenge date (UTC or server local date)',
+    completed      BOOLEAN     NOT NULL DEFAULT FALSE COMMENT 'Whether user has viewed/answered the daily question',
+    create_time    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted        BOOLEAN     NOT NULL DEFAULT FALSE,
+    version        INTEGER     NOT NULL DEFAULT 0,
     UNIQUE (user_id, challenge_date)
-);
-
-COMMENT ON TABLE  interview.daily_challenge IS 'Daily challenge record — one random question per user per day';
-COMMENT ON COLUMN interview.daily_challenge.user_id IS 'Owner user ID';
-COMMENT ON COLUMN interview.daily_challenge.question_id IS 'Assigned question ID';
-COMMENT ON COLUMN interview.daily_challenge.challenge_date IS 'Challenge date (UTC or server local date)';
-COMMENT ON COLUMN interview.daily_challenge.completed IS 'Whether user has viewed/answered the daily question';
+) COMMENT = 'Daily challenge record — one random question per user per day';
 
 -- ============================================================
 -- 12. user_practice_record — User practice history (for recommendations)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS interview.user_practice_record (
+CREATE TABLE IF NOT EXISTS user_practice_record (
     id              BIGINT          PRIMARY KEY,
-    user_id         BIGINT          NOT NULL,
-    question_id     BIGINT          NOT NULL,
-    source_type     VARCHAR(32),
-    source_ref_id   BIGINT,
-    practiced_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    create_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_time     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id         BIGINT          NOT NULL COMMENT 'Owner user ID',
+    question_id     BIGINT          NOT NULL COMMENT 'Practiced question ID',
+    source_type     VARCHAR(32)     COMMENT 'Practice source: INTERVIEW, RECOMMENDATION, DAILY, MANUAL',
+    source_ref_id   BIGINT          COMMENT 'Source reference ID (interviewId, recommendationId, etc.)',
+    practiced_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the question was practiced',
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted         BOOLEAN         NOT NULL DEFAULT FALSE,
     version         INTEGER         NOT NULL DEFAULT 0
-);
+) COMMENT = 'User practice history — tracks which questions a user has practiced, used for recommendation deduplication';
 
-COMMENT ON TABLE  interview.user_practice_record IS 'User practice history — tracks which questions a user has practiced, used for recommendation deduplication';
-COMMENT ON COLUMN interview.user_practice_record.user_id IS 'Owner user ID';
-COMMENT ON COLUMN interview.user_practice_record.question_id IS 'Practiced question ID';
-COMMENT ON COLUMN interview.user_practice_record.source_type IS 'Practice source: INTERVIEW, RECOMMENDATION, DAILY, MANUAL';
-COMMENT ON COLUMN interview.user_practice_record.source_ref_id IS 'Source reference ID (interviewId, recommendationId, etc.)';
-COMMENT ON COLUMN interview.user_practice_record.practiced_at IS 'When the question was practiced';
+-- ============================================================
+-- Partial unique indexes — INTENTIONALLY NOT BUILT (design §7c, decision A)
+--
+-- MySQL cannot express PG partial unique indexes (WHERE ...), so both
+-- are dropped here and the guarantee moved to the application layer.
+--
+-- 1) uk_user_account_fingerprint ON user_account (fingerprint)
+--    WHERE fingerprint IS NOT NULL
+--    PG purpose: fingerprint dedup. Decorative — no DB-level guarantee.
+--
+-- 2) uk_user_active_interview ON interview_record (user_id)
+--    WHERE deleted = false AND status IN ('CREATED', 'IN_PROGRESS')
+--    PG purpose: "one active interview per user" hard business rule.
+--    Guarded in the app layer by
+--    InterviewServiceImpl.checkNoActiveInterview (interview/service/impl/InterviewServiceImpl.java).
+--
+-- shortcut: 并发双开（同时创建两个进行中面试）的竞态窗口存在（应用层检查非原子），
+--           生产化需改为生成列 + 唯一索引。
+-- ============================================================
 
 -- ============================================================
 -- Unique constraints
 -- ============================================================
-ALTER TABLE interview.user_account
+ALTER TABLE user_account
     ADD CONSTRAINT uk_user_account_phone UNIQUE (phone);
-CREATE UNIQUE INDEX IF NOT EXISTS uk_user_account_fingerprint ON interview.user_account(fingerprint) WHERE fingerprint IS NOT NULL;
 
 -- ============================================================
 -- Indexes
 -- ============================================================
 
 -- user_account indexes
-CREATE INDEX idx_user_account_status        ON interview.user_account(status);
-CREATE INDEX idx_user_account_create_time   ON interview.user_account(create_time);
+CREATE INDEX idx_user_account_status        ON user_account(status);
+CREATE INDEX idx_user_account_create_time   ON user_account(create_time);
 
 -- resume indexes
-CREATE INDEX idx_resume_user_id    ON interview.resume(user_id);
-CREATE INDEX idx_resume_is_active  ON interview.resume(is_active);
-CREATE INDEX idx_resume_user_active ON interview.resume(user_id, is_active);
+CREATE INDEX idx_resume_user_id    ON resume(user_id);
+CREATE INDEX idx_resume_is_active  ON resume(is_active);
+CREATE INDEX idx_resume_user_active ON resume(user_id, is_active);
+
+-- resume_section indexes
+CREATE INDEX idx_resume_section_rid ON resume_section(resume_id);
 
 -- interview_record indexes
-CREATE INDEX idx_interview_record_user_id    ON interview.interview_record(user_id);
-CREATE INDEX idx_interview_record_company    ON interview.interview_record(company);
-CREATE INDEX idx_interview_record_status     ON interview.interview_record(status);
-CREATE INDEX idx_interview_record_user_status ON interview.interview_record(user_id, status);
-CREATE INDEX idx_interview_record_create_time ON interview.interview_record(create_time);
+CREATE INDEX idx_interview_record_user_id    ON interview_record(user_id);
+CREATE INDEX idx_interview_record_company    ON interview_record(company);
+CREATE INDEX idx_interview_record_status     ON interview_record(status);
+CREATE INDEX idx_interview_record_user_status ON interview_record(user_id, status);
+CREATE INDEX idx_interview_record_create_time ON interview_record(create_time);
 
 -- interview_message indexes
-CREATE INDEX idx_interview_message_interview_id  ON interview.interview_message(interview_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uk_interview_message_seq ON interview.interview_message(interview_id, sequence_num);
-CREATE INDEX idx_interview_message_created_at    ON interview.interview_message(created_at);
+CREATE INDEX idx_interview_message_interview_id  ON interview_message(interview_id);
+CREATE UNIQUE INDEX uk_interview_message_seq ON interview_message(interview_id, sequence_num);
+CREATE INDEX idx_interview_message_created_at    ON interview_message(created_at);
 
 -- interview_question_score indexes
-CREATE INDEX idx_iqs_interview_id ON interview.interview_question_score(interview_id);
-CREATE INDEX idx_iqs_question_type ON interview.interview_question_score(question_type);
+CREATE INDEX idx_iqs_interview_id ON interview_question_score(interview_id);
+CREATE INDEX idx_iqs_question_type ON interview_question_score(question_type);
 
 -- payment_record indexes
-CREATE INDEX idx_payment_record_user_id ON interview.payment_record(user_id);
-CREATE INDEX idx_payment_record_status ON interview.payment_record(status);
+CREATE INDEX idx_payment_record_user_id ON payment_record(user_id);
+CREATE INDEX idx_payment_record_status ON payment_record(status);
 
 -- question indexes
-CREATE INDEX idx_question_search
-    ON interview.question USING GIN(search_vector);
+-- (idx_question_search GIN(search_vector) dropped with the column — design §7b)
 CREATE INDEX idx_question_heat
-    ON interview.question (interview_count DESC, favorites DESC, views DESC);
+    ON question (interview_count DESC, favorites DESC, views DESC);
 CREATE INDEX idx_question_difficulty
-    ON interview.question (difficulty);
+    ON question (difficulty);
 CREATE INDEX idx_question_type
-    ON interview.question (type);
+    ON question (type);
 
 -- tag indexes
-CREATE INDEX idx_tag_name ON interview.tag(name);
+CREATE INDEX idx_tag_name ON tag(name);
 
 -- user_favorite indexes
-CREATE INDEX idx_user_favorite_user_id ON interview.user_favorite(user_id);
-CREATE INDEX idx_user_favorite_question_id ON interview.user_favorite(question_id);
+CREATE INDEX idx_user_favorite_user_id ON user_favorite(user_id);
+CREATE INDEX idx_user_favorite_question_id ON user_favorite(question_id);
 
 -- daily_challenge indexes
 CREATE INDEX idx_daily_challenge_user_date
-    ON interview.daily_challenge(user_id, challenge_date);
+    ON daily_challenge(user_id, challenge_date);
 
 -- user_practice_record indexes
 CREATE INDEX idx_user_practice_user_question
-    ON interview.user_practice_record(user_id, question_id);
+    ON user_practice_record(user_id, question_id);
 CREATE INDEX idx_user_practice_user_practiced
-    ON interview.user_practice_record(user_id, practiced_at);
+    ON user_practice_record(user_id, practiced_at);
 
 -- ============================================================
--- Trigger: auto-update update_time on row modification
+-- job-service tables — ABSORBED from V1__create_job_tables.sql
+-- (the flyway migration file was deleted; its content lives here now)
 -- ============================================================
-CREATE OR REPLACE FUNCTION interview.set_update_time()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.update_time = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
-DO $$
-DECLARE
-    tbl TEXT;
-BEGIN
-    FOR tbl IN
-        SELECT unnest(ARRAY[
-            'user_account',
-            'user_quota',
-            'resume',
-            'resume_section',
-            'interview_record',
-            'interview_message',
-            'interview_question_score',
-            'payment_record',
-            'question',
-            'tag',
-            'question_tag',
-            'user_favorite',
-            'daily_challenge',
-            'user_practice_record'
-        ])
-    LOOP
-        EXECUTE format(
-            'DROP TRIGGER IF EXISTS trg_%s_set_update_time ON interview.%I',
-            tbl, tbl
-        );
-        EXECUTE format(
-            'CREATE TRIGGER trg_%s_set_update_time
-             BEFORE UPDATE ON interview.%I
-             FOR EACH ROW
-             EXECUTE FUNCTION interview.set_update_time()',
-            tbl, tbl
-        );
-    END LOOP;
-END;
-$$;
+-- 投递记录主表
+CREATE TABLE IF NOT EXISTS job_applications (
+    id          VARCHAR(64)  PRIMARY KEY,
+    user_id     BIGINT       NOT NULL,
+    resume_id   VARCHAR(64)  NULL,
+    company     VARCHAR(255) NOT NULL,
+    position    VARCHAR(255) NOT NULL,
+    channel     VARCHAR(64)  NULL,
+    status      VARCHAR(32)  NOT NULL,
+    applied_at  DATETIME     NOT NULL,
+    notes       TEXT         NULL,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
--- ============================================================
--- Trigger: auto-update search_vector for question full-text search
--- ============================================================
-CREATE OR REPLACE FUNCTION interview.set_question_search_vector()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.search_vector :=
-        setweight(to_tsvector('simple', COALESCE(NEW.title, '')), 'A') ||
-        setweight(to_tsvector('simple', COALESCE(NEW.content, '')), 'B');
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE INDEX idx_job_applications_user_applied
+    ON job_applications (user_id, applied_at DESC);
 
-DROP TRIGGER IF EXISTS trg_question_search_vector ON interview.question;
-CREATE TRIGGER trg_question_search_vector
-    BEFORE INSERT OR UPDATE OF title, content ON interview.question
-    FOR EACH ROW EXECUTE FUNCTION interview.set_question_search_vector();
+CREATE INDEX idx_job_applications_resume
+    ON job_applications (resume_id);
+
+-- AI 求职信表
+CREATE TABLE IF NOT EXISTS ai_cover_letters (
+    id              VARCHAR(64)  PRIMARY KEY,
+    user_id         BIGINT       NOT NULL,
+    resume_id       VARCHAR(64)  NOT NULL,
+    application_id  VARCHAR(64)  NULL,
+    company         VARCHAR(255) NOT NULL,
+    position        VARCHAR(255) NOT NULL,
+    job_description TEXT         NULL,
+    extra_notes     TEXT         NULL,
+    output_language VARCHAR(64)  NOT NULL,
+    title           VARCHAR(255) NOT NULL,
+    body            TEXT         NOT NULL,
+    created_at      DATETIME     NOT NULL,
+    updated_at      DATETIME     NOT NULL
+);
+
+CREATE INDEX idx_ai_cover_letters_user_resume_created
+    ON ai_cover_letters (user_id, resume_id, created_at DESC);
+
+CREATE INDEX idx_ai_cover_letters_application
+    ON ai_cover_letters (application_id);
 
 -- ============================================================
--- Sequence defaults for tables using ASSIGN_ID
--- (Keys are assigned by application layer; sequences exist
---  only for reference / fallback ordering.)
+-- Notes for the next reader
 -- ============================================================
--- Note: The ASSIGN_ID (snowflake) strategy generates IDs
--- at the application layer. The sequences above are provided
--- for compatibility and administrative use only.
-
+-- * Sequences (PG CREATE SEQUENCE) are gone: MyBatis-Plus ASSIGN_ID
+--   (snowflake) generates IDs in the application layer.
+-- * update_time has no ON UPDATE CURRENT_TIMESTAMP and no PG-style
+--   trigger: every write path that must refresh it sets update_time = NOW()
+--   explicitly in the mapper (known difference #8).
+-- * PG's ALTER SYSTEM idle-timeout settings have no MySQL equivalent and
+--   were not replaced (MySQL manages this via wait_timeout on the server).
 -- ============================================================
--- Connection idle timeouts — prevent zombie connections
--- ============================================================
--- idle_session_timeout: pure idle connections auto-disconnect after 10 min
--- idle_in_transaction_session_timeout: idle-in-transaction auto-rollback after 60 sec
--- Default is 0 (disabled). Without these, connections from killed JVMs
--- linger until TCP keepalive timeout (~2 hours), eventually exhausting
--- max_connections (default 100) and causing "too many clients already".
---
--- Note: These settings apply to the entire PostgreSQL instance.
--- For existing environments, run manually:
---   ALTER SYSTEM SET idle_session_timeout = '600000';
---   ALTER SYSTEM SET idle_in_transaction_session_timeout = '60000';
---   SELECT pg_reload_conf();
-ALTER SYSTEM SET idle_session_timeout = '600000';
-ALTER SYSTEM SET idle_in_transaction_session_timeout = '60000';
