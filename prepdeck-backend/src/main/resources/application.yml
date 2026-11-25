@@ -3,10 +3,10 @@ server:
 
 spring:
   config:
-    # 本地环境变量（DEEPSEEK_API_KEY/JWT_SECRET/DB_PASSWORD 等）在应用启动目录下的
-    # application-env.yml，由模板 application-env.yml.example 复制而来；不入 git。
-    # 缺失时启动失败——见 README 第 2 步。
-    import: file:./application-env.yml
+    # 本地环境配置（DEEPSEEK_API_KEY/JWT_SECRET/DB_PASSWORD 等）在 src/main/resources/
+    # application-env.yml，由同目录 application-env.yml.example 复制而来；该文件含密钥、
+    # 已被 git 忽略（会随构建打进 jar，分发 jar 前先删除），缺失时启动失败——见 README。
+    import: classpath:application-env.yml
   ai:
     deepseek:
       # 无默认值：未配置 DEEPSEEK_API_KEY 时启动即失败（fail fast）
