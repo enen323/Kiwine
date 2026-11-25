@@ -9,7 +9,8 @@ PrepDeck 是一个 Spring Boot 3.3.5 单体应用（由原 8 个微服务 + gate
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `DEEPSEEK_API_KEY` | 是 | 无 | DeepSeek API 密钥，缺失时启动即失败（fail fast） |
-| `JWT_SECRET` | 是 | 无 | JWT 签名密钥，缺失时启动校验失败，认证全挂 |
+| `DEEPSEEK_BASE_URL` | 否 | `https://api.deepseek.com` | DeepSeek API 地址（一般无需修改） |
+| `JWT_SECRET` | 是 | 无 | JWT 签名密钥，缺失时启动不报错，但首次认证请求（登录/带 token 请求）失败 |
 | `DB_HOST` | 否 | `localhost` | MySQL 主机 |
 | `DB_NAME` | 否 | `prepdeck` | 数据库名 |
 | `DB_USERNAME` | 否 | `root` | MySQL 用户名 |
