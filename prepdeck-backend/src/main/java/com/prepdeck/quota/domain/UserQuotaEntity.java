@@ -1,4 +1,4 @@
-package com.prepdeck.payment.entity;
+package com.prepdeck.quota.domain;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -9,25 +9,22 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("payment_record")
-public class PaymentRecordEntity {
+@TableName("user_quota")
+public class UserQuotaEntity {
 
     @TableId(type = IdType.ASSIGN_ID)
-    private Long id;
-
     private Long userId;
 
-    private BigDecimal amount;
+    private Integer interviewFreeUsed;
 
-    private String serviceType;
+    private Integer resumeChatFreeUsed;
 
-    private String status;
+    private Integer interviewPaid;
 
-    private String wechatTradeNo;
+    private Integer resumeChatPaid;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

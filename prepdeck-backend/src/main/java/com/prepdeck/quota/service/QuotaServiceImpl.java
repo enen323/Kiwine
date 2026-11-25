@@ -1,13 +1,12 @@
-package com.prepdeck.quota.service.impl;
+package com.prepdeck.quota.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.prepdeck.common.exception.BadRequestException;
 import com.prepdeck.common.util.SecurityContext;
 import com.prepdeck.quota.dto.response.QuotaCheckResult;
 import com.prepdeck.quota.dto.response.QuotaVO;
-import com.prepdeck.quota.entity.UserQuotaEntity;
-import com.prepdeck.quota.mapper.UserQuotaMapper;
-import com.prepdeck.quota.service.QuotaService;
+import com.prepdeck.quota.domain.UserQuotaEntity;
+import com.prepdeck.quota.repository.UserQuotaMapper;
 import com.prepdeck.quota.util.QuotaConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

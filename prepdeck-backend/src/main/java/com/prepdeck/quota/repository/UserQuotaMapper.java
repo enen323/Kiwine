@@ -1,7 +1,7 @@
-package com.prepdeck.quota.mapper;
+package com.prepdeck.quota.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.prepdeck.quota.entity.UserQuotaEntity;
+import com.prepdeck.quota.domain.UserQuotaEntity;
 import org.apache.ibatis.annotations.Param;
 
 public interface UserQuotaMapper extends BaseMapper<UserQuotaEntity> {
