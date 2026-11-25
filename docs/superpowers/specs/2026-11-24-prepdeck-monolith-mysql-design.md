@@ -122,6 +122,8 @@
 
 **选定方案 A**：mapper 4 处改为 `AND (q.title LIKE ... OR q.content LIKE ...)`；`QuestionEntity` 删 `search_vector` 字段；init SQL 删该列、GIN 索引与触发器。中文可用、改动最小；失去相关性排序，数据量大后全表扫描。`shortcut: 数据量增长后用 FULLTEXT ngram 替代 LIKE 方案`。
 
+**同步代码侧 MySQL 化（Task 6 控制器裁决扩充，Task 6 preflight 发现）**：5 个 mapper XML 共 32 处 `interview.` 模式前缀（`UserQuotaMapper.xml` 15、`QuestionMapper.xml` 8、`UserFavoriteMapper.xml` 3、`QuestionTagMapper.xml` 4、`DailyChallengeMapper.xml` 2）必须去掉——MySQL 无 `interview` schema（Task 7 删 CREATE SCHEMA），不去则全部 mapper 查询运行时报表不存在；`QuestionMapper.xml:28` `ORDER BY RANDOM()` → `ORDER BY RAND()`（MySQL 无 RANDOM 函数）。两处均属设计 §7「表名去 interview. 前缀」在 mapper 代码侧的延伸，非新决策。
+
 ### 7c. 部分唯一索引 — 已决策：方案 A（删索引，应用层检查）
 
 两处 pg 部分唯一索引 MySQL 无法表达：
