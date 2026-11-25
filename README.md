@@ -45,11 +45,11 @@ PrepDeck 是一个 Spring Boot 3.3.5 单体应用（由原 8 个微服务 + gate
    DEEPSEEK_API_KEY=... JWT_SECRET=... java -jar target/prepdeck-1.0.0-SNAPSHOT.jar
    ```
 
-服务端口 8080，健康检查：`curl localhost:8080/actuator/health`。
+服务端口 8081，健康检查：`curl localhost:8081/actuator/health`。
 
 ## 注意事项
 
 - 本机 MySQL root 密码若非 `root`，请设置 `DB_PASSWORD` 覆盖默认值。
 - 单库 20 连接（Hikari）是单体容量上限，原微服务合计约 96。
-- 前端：`cd prepdeck-frontend && npm install && npm run dev`（vite 代理 `/api` → `localhost:8080`）。
+- 前端：`cd prepdeck-frontend && npm install && npm run dev`（vite 代理 `/api` → `localhost:8081`）。
 - 本项目按用户决策不含自动化测试，验证方式为编译 + 启动 + 手工验收。

@@ -13,11 +13,11 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     proxy: {
-      // 所有 /api 请求统一转发到网关（localhost:8080）。
+      // 所有 /api 请求统一转发到网关（localhost:8081）。
       // Report / Question 等微服务由网关统一路由分发，前端不直接访问 8084 / 8085 等端口。
       // SSE 友好：禁用任何可能的缓冲/转换，确保流式响应逐帧转发到前端
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8081',
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {

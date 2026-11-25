@@ -12,7 +12,7 @@ import type {
 /**
  * Question Service 接口封装（对应 question-service-api.md）。
  *
- * 服务路由前缀由 vite 统一代理到网关 localhost:8080（见 vite.config.ts），由网关转发到 question 服务。
+ * 服务路由前缀由 vite 统一代理到网关 localhost:8081（见 vite.config.ts），由网关转发到 question 服务。
  * 文档约定：用户身份由网关注入的 `X-User-Id` 请求头识别。开发态无网关，
  * 故由前端显式携带该头（模块内统一解析 userApi.getMe() 并缓存，调用方无需关心）。
  */

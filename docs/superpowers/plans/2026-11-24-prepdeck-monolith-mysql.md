@@ -82,7 +82,7 @@ Java 21、Spring Boot 3.3.3.5（3.3.5）、Spring MVC、MyBatis-Plus 3.5.7、MyS
 - Delete: 9 个模块的 `src/main/resources/application*.yml`（随模块目录删除时核对无遗漏）
 
 **Steps**:
-- [ ] 按设计文档 §2 写 `application.yml`：port 8080、MySQL 连接串（`jdbc:mysql://${DB_HOST:localhost}:3306/${DB_NAME:prepdeck}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true`）、driver `com.mysql.cj.jdbc.Driver`、`${DB_USERNAME:root}`/`${DB_PASSWORD:root}`、Hikari 20/5/300000/10000/1200000、redis localhost:6379、mybatis-plus 一段、`interview.prompt` 整段、multipart 10MB/20MB、`logging.level.com.prepdeck`
+- [ ] 按设计文档 §2 写 `application.yml`：port 8081、MySQL 连接串（`jdbc:mysql://${DB_HOST:localhost}:3306/${DB_NAME:prepdeck}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true`）、driver `com.mysql.cj.jdbc.Driver`、`${DB_USERNAME:root}`/`${DB_PASSWORD:root}`、Hikari 20/5/300000/10000/1200000、redis localhost:6379、mybatis-plus 一段、`interview.prompt` 整段、multipart 10MB/20MB、`logging.level.com.prepdeck`
 - [ ] AI 段：`spring.ai.deepseek.api-key: ${DEEPSEEK_API_KEY}`（无默认值）+ `spring.ai.deepseek.base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}`
 - [ ] 确认删除：`spring.cloud.*`、`feign.*`、所有 `spring.config.import: optional:nacos:...`
 - [ ] 验证：`grep -n "nacos\|feign\|spring.cloud" src/main/resources/application.yml` 无输出；`grep -c "" application.yml` 行数合理；保留段核对（`interview.prompt` 键与 interview-service 原文件一致）

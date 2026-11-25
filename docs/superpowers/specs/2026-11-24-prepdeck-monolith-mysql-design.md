@@ -9,7 +9,7 @@
 
 ## 目标
 
-- **单体**：一个 Maven 模块、一个 `application.yml`、一个启动类、一个 jar，端口 8080（前端 vite proxy 已指向 8080）。
+- **单体**：一个 Maven 模块、一个 `application.yml`、一个启动类、一个 jar，端口 8081（前端 vite proxy 已指向 8081）。
 - **去 Nacos**：服务发现与配置中心全部移除，服务间调用改为进程内直接调用。
 - **MySQL**：连本机 MySQL，库名 `prepdeck`，表结构由 `sql/init/init-database.sql`（转换为 MySQL 方言）初始化；驱动 `com.mysql:mysql-connector-j`（版本由 Spring Boot BOM 管理）。
 - **认证不退化**：网关的 JWT 校验 + Redis 黑名单 + 请求头注入能力完整移植进单体。
@@ -58,7 +58,7 @@
 
 ### 2. 配置合并（根 `src/main/resources/application.yml`）
 
-- `server.port: 8080`。
+- `server.port: 8081`。
 - datasource：`jdbc:mysql://${DB_HOST:localhost}:3306/${DB_NAME:prepdeck}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true`，driver `com.mysql.cj.jdbc.Driver`，`${DB_USERNAME:root}` / `${DB_PASSWORD:root}`；Hikari 参数取现有最大值（maximum-pool-size 20 / minimum-idle 5 / idle-timeout 300000 / connection-timeout 10000 / max-lifetime 1200000）。
 - redis：host/port 默认 `localhost:6379`（取代各服务不一的默认值）。
 - mybatis-plus 段：各服务原一致，取一份（ASSIGN_ID、logic-delete、下划线转驼峰、StdOut 日志）。
@@ -141,13 +141,13 @@
 
 ### 9. 前端
 
-- 零改动。vite proxy 仍指向 8080；控制器路径本就是 `/api/v1/**`（已核对 11 个控制器无路径冲突）。
+- 零改动。vite proxy 仍指向 8081；控制器路径本就是 `/api/v1/**`（已核对 11 个控制器无路径冲突）。
 
 ## 已知行为差异（需用户知晓）
 
 1. 本地调用失败不再降级为"服务不可用"（SERVICE_UNAVAILABLE），直接抛真实业务异常。
 2. 启动前必须配置 `DEEPSEEK_API_KEY`，否则启动失败（fail fast，用户决策）。
-3. 端口从"9 服务 + 网关"收敛为单一 8080。
+3. 端口从"9 服务 + 网关"收敛为单一 8081。
 4. 旧 Nacos 上可能还有仓库里没有的 per-service `-dev.yml` 覆盖（日志级别等）——无法找回，影响仅限默认值差异；deepseek 的 key/base-url 改由本地 yml/环境变量提供。
 5. 关键词搜索改用 LIKE：失去 pg 的相关性排序，大数据量下全表扫描（已决策，见 7b）。
 6. 两个部分唯一索引不再有 DB 层保证，仅应用层检查，存在并发竞态窗口（已决策，见 7c）。
