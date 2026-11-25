@@ -1,11 +1,11 @@
-package com.prepdeck.payment.service.impl;
+package com.prepdeck.payment.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.prepdeck.payment.client.QuotaClient;
 import com.prepdeck.payment.dto.request.ChargeRequest;
 import com.prepdeck.payment.dto.response.ChargeResponse;
-import com.prepdeck.payment.entity.PaymentRecordEntity;
-import com.prepdeck.payment.mapper.PaymentRecordMapper;
+import com.prepdeck.payment.domain.PaymentRecordEntity;
+import com.prepdeck.payment.repository.PaymentRecordMapper;
 import com.prepdeck.payment.service.PaymentService;
 import com.prepdeck.payment.util.WechatPaySigner;
 import com.prepdeck.quota.util.QuotaConstants;
