@@ -1,4 +1,4 @@
-package com.prepdeck.job.service.impl;
+package com.prepdeck.job.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -11,7 +11,7 @@ import com.prepdeck.common.model.Result;
 import com.prepdeck.common.util.SecurityContext;
 import com.prepdeck.job.client.QuotaClient;
 import com.prepdeck.job.client.ResumeClient;
-import com.prepdeck.job.client.ResumeVO;
+import com.prepdeck.job.dto.response.ResumeVO;
 import com.prepdeck.job.domain.ApplicationStatus;
 import com.prepdeck.job.domain.AiCoverLetterEntity;
 import com.prepdeck.job.domain.JobApplicationEntity;

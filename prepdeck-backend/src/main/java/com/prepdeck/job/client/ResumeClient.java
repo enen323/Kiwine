@@ -2,6 +2,7 @@ package com.prepdeck.job.client;
 
 import com.prepdeck.common.model.Result;
 import com.prepdeck.common.util.SecurityContext;
+import com.prepdeck.job.dto.response.ResumeVO;
 import com.prepdeck.resume.service.ResumeService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
