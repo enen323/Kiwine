@@ -5,7 +5,7 @@
 
     <select id="findToday" resultType="com.prepdeck.question.domain.DailyChallengeEntity">
         SELECT *
-        FROM interview.daily_challenge
+        FROM daily_challenge
         WHERE user_id = #{userId}
           AND challenge_date = #{today}
           AND deleted = false
@@ -13,7 +13,7 @@
     </select>
 
     <insert id="upsert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO interview.daily_challenge
+        INSERT INTO daily_challenge
             (id, user_id, question_id, challenge_date, completed, create_time, update_time, deleted, version)
         VALUES (#{id}, #{userId}, #{questionId}, #{challengeDate}, #{completed}, #{createTime}, #{updateTime}, #{deleted}, #{version})
         ON CONFLICT (user_id, challenge_date) DO NOTHING

@@ -5,14 +5,14 @@
 
     <select id="findTagIdsByQuestionId" resultType="long">
         SELECT tag_id
-        FROM interview.question_tag
+        FROM question_tag
         WHERE question_id = #{questionId}
           AND deleted = false
     </select>
 
     <select id="findTagIdsByQuestionIds" resultType="com.prepdeck.question.domain.QuestionTagEntity">
         SELECT question_id, tag_id
-        FROM interview.question_tag
+        FROM question_tag
         WHERE question_id IN
         <foreach collection="questionIds" item="qid" open="(" separator="," close=")">
             #{qid}
@@ -22,14 +22,14 @@
 
     <select id="findQuestionIdsByTagId" resultType="long">
         SELECT question_id
-        FROM interview.question_tag
+        FROM question_tag
         WHERE tag_id = #{tagId}
           AND deleted = false
     </select>
 
     <select id="countDistinctTagsByQuestionIds" resultType="int">
         SELECT COUNT(DISTINCT qt.tag_id)
-        FROM interview.question_tag qt
+        FROM question_tag qt
         WHERE qt.question_id IN
         <foreach collection="questionIds" item="qid" open="(" separator="," close=")">
             #{qid}

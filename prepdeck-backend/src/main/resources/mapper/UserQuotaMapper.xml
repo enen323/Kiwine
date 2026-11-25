@@ -4,7 +4,7 @@
 <mapper namespace="com.prepdeck.quota.mapper.UserQuotaMapper">
 
     <update id="incrementInterviewFreeUsed">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_free_used = interview_free_used + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -12,7 +12,7 @@
     </update>
 
     <update id="incrementResumeChatFreeUsed">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_free_used = resume_chat_free_used + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -20,7 +20,7 @@
     </update>
 
     <update id="tryConsumeInterviewFree">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_free_used = interview_free_used + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -29,7 +29,7 @@
     </update>
 
     <update id="tryConsumeResumeChatFree">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_free_used = resume_chat_free_used + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -38,7 +38,7 @@
     </update>
 
     <update id="incrementInterviewPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_paid = interview_paid + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -46,7 +46,7 @@
     </update>
 
     <update id="incrementResumeChatPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_paid = resume_chat_paid + 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -54,27 +54,27 @@
     </update>
 
     <insert id="insertIgnore">
-        INSERT INTO interview.user_quota (user_id, interview_free_used, resume_chat_free_used, interview_paid, resume_chat_paid, deleted, version)
+        INSERT INTO user_quota (user_id, interview_free_used, resume_chat_free_used, interview_paid, resume_chat_paid, deleted, version)
         VALUES (#{userId}, 0, 0, 0, 0, false, 0)
         ON CONFLICT (user_id) DO NOTHING
     </insert>
 
     <update id="resetInterviewFreeUsed">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_free_used = 0,
             update_time = NOW()
         WHERE deleted = false
     </update>
 
     <update id="resetResumeChatFreeUsed">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_free_used = 0,
             update_time = NOW()
         WHERE deleted = false
     </update>
 
     <update id="decrementInterviewPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_paid = CASE
                                  WHEN interview_paid > 0 THEN interview_paid - 1
                                  ELSE 0
@@ -85,7 +85,7 @@
     </update>
 
     <update id="decrementResumeChatPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_paid = CASE
                                    WHEN resume_chat_paid > 0 THEN resume_chat_paid - 1
                                    ELSE 0
@@ -96,7 +96,7 @@
     </update>
 
     <update id="consumeInterview">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_free_used = CASE
                                       WHEN interview_free_used &lt; #{limit} THEN interview_free_used + 1
                                       ELSE interview_free_used
@@ -112,7 +112,7 @@
     </update>
 
     <update id="consumeResumeChat">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_free_used = CASE
                                         WHEN resume_chat_free_used &lt; #{limit} THEN resume_chat_free_used + 1
                                         ELSE resume_chat_free_used
@@ -128,7 +128,7 @@
     </update>
 
     <update id="tryConsumeInterviewPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET interview_paid = interview_paid - 1,
             update_time = NOW()
         WHERE user_id = #{userId}
@@ -137,7 +137,7 @@
     </update>
 
     <update id="tryConsumeResumeChatPaid">
-        UPDATE interview.user_quota
+        UPDATE user_quota
         SET resume_chat_paid = resume_chat_paid - 1,
             update_time = NOW()
         WHERE user_id = #{userId}

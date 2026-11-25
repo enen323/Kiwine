@@ -134,7 +134,6 @@ public class QuestionServiceImpl implements QuestionService {
         entity.setInterviewCount(0);
         entity.setFavorites(0);
         entity.setViews(0);
-        entity.setSearchVector(null);
         questionMapper.insert(entity);
 
         if (request.tagIds() != null && !request.tagIds().isEmpty()) {
@@ -162,7 +161,6 @@ public class QuestionServiceImpl implements QuestionService {
         entity.setType(request.type());
         entity.setDifficulty(request.difficulty());
         entity.setEasyMistake(request.easyMistake());
-        entity.setSearchVector(null);
         questionMapper.updateById(entity);
 
         questionTagMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<QuestionTagEntity>()

@@ -40,9 +40,6 @@ public class QuestionEntity {
     @TableField("views")
     private Integer views;
 
-    @TableField(value = "search_vector", insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
-    private String searchVector;
-
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
