@@ -24,6 +24,7 @@ public class DeepSeekClient implements AiClient {
 
     public DeepSeekClient(
             ChatModel chatModel,
+            // 占位符解析即 fail-fast：DEEPSEEK_API_KEY 缺失时 Spring 解析该 @Value 即抛异常使启动失败；此参数有意不使用，勿按"未使用"清理删除
             @Value("${spring.ai.deepseek.api-key}") String apiKey) {
         this.chatClient = ChatClient.create(chatModel);
     }
