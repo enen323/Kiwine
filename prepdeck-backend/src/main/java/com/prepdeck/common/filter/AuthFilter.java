@@ -1,5 +1,6 @@
 package com.prepdeck.common.filter;
 
+import com.prepdeck.common.config.SpringEnvironmentHolder;
 import com.prepdeck.common.constant.AuthConstant;
 import com.prepdeck.common.util.JwtProvider;
 import com.prepdeck.common.util.TokenBlacklist;
@@ -41,7 +42,9 @@ public class AuthFilter extends OncePerRequestFilter {
 
     private static final String GATEWAY_SOURCE_HEADER = "X-Gateway-Source";
     private static final String GATEWAY_SOURCE_VALUE = "prepdeck-gateway";
-    private static final String GATEWAY_SECRET = System.getenv().getOrDefault("GATEWAY_SECRET", "10b8e581a75345c78bdc195188a74e0f3dccf51ef33d4452b34c6bed67cd7422");
+    private static String gatewaySecret() {
+        return SpringEnvironmentHolder.get("GATEWAY_SECRET", "10b8e581a75345c78bdc195188a74e0f3dccf51ef33d4452b34c6bed67cd7422");
+    }
 
     /** 白名单路径 — 无需认证 */
     private static final List<String> WHITELIST = List.of(
@@ -126,7 +129,7 @@ public class AuthFilter extends OncePerRequestFilter {
             headers.put(AuthConstant.X_USER_ID, userId);
             headers.put(AuthConstant.X_USER_ROLE, userRole);
             headers.put(GATEWAY_SOURCE_HEADER, GATEWAY_SOURCE_VALUE);
-            headers.put(AuthConstant.X_GATEWAY_SECRET, GATEWAY_SECRET);
+            headers.put(AuthConstant.X_GATEWAY_SECRET, gatewaySecret());
             this.gatewayHeaders = headers;
         }
 

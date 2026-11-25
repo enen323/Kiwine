@@ -1,5 +1,6 @@
 package com.prepdeck.common.util;
 
+import com.prepdeck.common.config.SpringEnvironmentHolder;
 import com.prepdeck.common.constant.AuthConstant;
 import com.prepdeck.common.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +22,9 @@ public final class SecurityContext {
     private static final String GATEWAY_SOURCE_HEADER = "X-Gateway-Source";
     private static final String GATEWAY_SOURCE_VALUE = "prepdeck-gateway";
     private static final String GATEWAY_SECRET_HEADER = AuthConstant.X_GATEWAY_SECRET;
-    private static final String GATEWAY_SECRET = System.getenv().getOrDefault("GATEWAY_SECRET", "10b8e581a75345c78bdc195188a74e0f3dccf51ef33d4452b34c6bed67cd7422");
+    private static String gatewaySecret() {
+        return SpringEnvironmentHolder.get("GATEWAY_SECRET", "10b8e581a75345c78bdc195188a74e0f3dccf51ef33d4452b34c6bed67cd7422");
+    }
 
     /**
      * 获取当前登录用户 ID
@@ -62,7 +65,7 @@ public final class SecurityContext {
         if (secret == null || secret.isBlank()) {
             throw new UnauthorizedException("非法请求来源");
         }
-        if (!GATEWAY_SECRET.equals(secret)) {
+        if (!gatewaySecret().equals(secret)) {
             throw new UnauthorizedException("非法请求来源");
         }
     }

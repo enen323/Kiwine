@@ -1,0 +1,30 @@
+# PrepDeck 本地环境配置模板。
+#
+# 用法：复制为同目录的 application-env.yml 并填写必填项：
+#   cp prepdeck-backend/application-env.yml.example prepdeck-backend/application-env.yml
+# application.yml 通过 spring.config.import 导入 application-env.yml；
+# 该文件含密钥、已被 .gitignore 忽略，禁止提交（提交的是本 .example）。
+#
+# 优先级：操作系统环境变量 > application-env.yml > 代码/配置里的默认值。
+
+# === 必填 ===
+# DeepSeek API 密钥：留空启动即失败（fail fast）
+DEEPSEEK_API_KEY:
+# JWT 签名密钥：HS256 要求至少 32 字符；留空启动不报错，但首次登录请求会失败
+JWT_SECRET:
+
+# === MySQL ===
+DB_HOST: localhost
+DB_NAME: prepdeck
+DB_USERNAME: root
+DB_PASSWORD:
+
+# === Redis ===
+REDIS_HOST: localhost
+REDIS_PORT: 6379
+
+# === 可选 ===
+DEEPSEEK_BASE_URL: https://api.deepseek.com
+LOG_LEVEL: DEBUG
+# GATEWAY_SECRET: 网关内部请求头校验密钥；注释掉 = 代码内置默认值
+# ALLOWED_ORIGINS: CORS 允许的来源，逗号分隔；注释掉 = 默认 http://127.0.0.1:*
