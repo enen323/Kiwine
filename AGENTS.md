@@ -17,7 +17,16 @@ PrepDeck：AI 模拟面试平台。后端 `prepdeck-backend/` 是 Spring Boot 3.
 ## 后端结构（prepdeck-backend）
 
 - 包布局：`com.prepdeck.<domain>`（user/resume/interview/report/question/quota/payment/job）+ `com.prepdeck.common`（config/filter/handler/util/constant/model/enums/exception/dto/ai）。
-- 单域分层：`controller` → `service`（`/impl`）→ `repository` 或 `mapper`（payment/quota 用 `entity`/`mapper`）→ `domain` 或 `entity`；DTO 在 `dto/request`、`dto/response`。
+- **结构宪章（一域一形状，硬约束）**：每个域必须长成——
+  - `controller/`：只做参数校验与编排，不写业务
+  - `service/`：`XxxService` 接口 + `XxxServiceImpl` **平铺**（禁止 `impl/` 子包）
+  - `repository/`：数据访问接口（`BaseMapper` 子类，类名保持 `*Mapper`）——全项目唯一碰数据库的地方
+  - `domain/`：实体（类名保持 `*Entity`）
+  - `dto/request`、`dto/response`：入参/出参，VO 也住这里（禁止 DTO/VO 漂进 `client/` 等其他包）
+  - `client/`：调用别域的唯一入口，只准本域 service 注入
+  - `config/ util/ engine/ handler/ enums/`：域内辅助，按需
+  - mapper XML 跟域走：`resources/mapper/<domain>/`
+- 三条执行规则：① 一个域一套形状，新域照此复制，形状不齐即缺陷；② 跨域数据访问禁止——service 只能调对方 `client`，永不注入别域的 repository/mapper；③ DTO 不准出 `dto/` 包。项目无测试（既定决策），约束执行 = 结构本身 + 本章 + 改域结构时 grep 自检（如 `grep -rn "service/impl/\|<域>\.mapper\|<域>\.entity" src/main/`），不引入 ArchUnit。
 - 统一出口：接口一律返回 `common/model/Result<T>`（code=0 为成功）；失败抛 `common/exception` 下的业务异常，由 `GlobalExceptionHandler` 兜底。
 - 认证链：`common/filter/AuthFilter` 校验 JWT + Redis 黑名单后，注入 `X-User-Id`/`X-User-Role`/`X-Gateway-Source`/`X-Gateway-Secret` 头；`common/util/SecurityContext` 从这些头取当前用户。新接口默认走该链路；放行路径只改 `AuthFilter` 白名单。
 - 原 Feign 客户端已改为各域 `client` 包下的 `@Component` 本地类。payment/interview/resume/job 下有 4 个 `QuotaClient`、2 个 `ResumeClient` 同名类，靠显式 bean 名区分（如 `@Component("interviewQuotaClient")`）；新增客户端保持 bean 名唯一。
