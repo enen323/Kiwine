@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * 返回类型沿用 job 侧本地 DTO {@link ResumeVO}（原 Feign 接口即如此，调用方按 id/userId/title/contentText 四个
  * 字段消费），故由 resume 侧 ResumeVO 逐字段转换，不改变任何调用方的类型。</p>
  */
-@Component
+@Component("jobResumeClient")
 public class ResumeClient {
 
     @Resource
