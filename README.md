@@ -4,7 +4,7 @@ PrepDeck 是一个 Spring Boot 3.3.5 单体应用（由原 8 个微服务 + gate
 
 ## 环境变量
 
-本地开发无需设置系统环境变量：复制 `prepdeck-backend/.env.example` 为 `prepdeck-backend/.env` 并填写，`prepdeck-backend/run.sh` 启动时自动加载（`.env` 含密钥，已被 git 忽略）。变量名与默认值均来自 `prepdeck-backend/src/main/resources/application.yml`（`${变量名:默认值}` 形式），未列出的变量均无可调默认值：
+本地开发无需设置系统环境变量：复制 `prepdeck-backend/application-env.yml.example` 为 `prepdeck-backend/application-env.yml` 并填写必填项。`application.yml` 通过 `spring.config.import` 导入该文件；它含密钥、已被 git 忽略（入库的只有 `.example` 模板）。变量名与默认值均来自 `prepdeck-backend/src/main/resources/application.yml`（`${变量名:默认值}` 形式），未列出的变量均无可调默认值：
 
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
@@ -17,6 +17,8 @@ PrepDeck 是一个 Spring Boot 3.3.5 单体应用（由原 8 个微服务 + gate
 | `DB_PASSWORD` | 否 | `root` | MySQL 密码 |
 | `REDIS_HOST` | 否 | `localhost` | Redis 主机 |
 | `REDIS_PORT` | 否 | `6379` | Redis 端口 |
+| `GATEWAY_SECRET` | 否 | 代码内置值 | 网关内部请求头校验密钥，留空用默认 |
+| `ALLOWED_ORIGINS` | 否 | `http://127.0.0.1:*` | CORS 允许来源，逗号分隔 |
 | `LOG_LEVEL` | 否 | `DEBUG` | 日志级别（仅作用于 `com.prepdeck` 包） |
 
 ## 本地启动
@@ -39,17 +41,17 @@ PrepDeck 是一个 Spring Boot 3.3.5 单体应用（由原 8 个微服务 + gate
    cd prepdeck-backend && mvn clean package
    ```
 
-4. 运行（自动加载 `.env`，无需设置系统环境变量）：
+4. 运行（从 `prepdeck-backend/` 目录启动，自动读取同目录 `application-env.yml`，无需设置系统环境变量；IDEA 的 Spring Boot 运行配置默认工作目录即模块目录，可直接启动）：
 
    ```bash
-   bash run.sh
+   java -jar target/prepdeck-1.0.0-SNAPSHOT.jar
    ```
 
 服务端口 8081，健康检查：`curl localhost:8081/actuator/health`。
 
 ## 注意事项
 
-- 本机 MySQL root 密码若非 `root`，在 `prepdeck-backend/.env` 设置 `DB_PASSWORD`。
+- 本机 MySQL root 密码若非 `root`，在 `prepdeck-backend/application-env.yml` 设置 `DB_PASSWORD`。
 - 单库 20 连接（Hikari）是单体容量上限，原微服务合计约 96。
 - 前端：`cd prepdeck-frontend && npm install && npm run dev`（vite 代理 `/api` → `localhost:8081`）。
 - 本项目按用户决策不含自动化测试，验证方式为编译 + 启动 + 手工验收。

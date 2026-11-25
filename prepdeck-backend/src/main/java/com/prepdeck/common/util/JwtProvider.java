@@ -1,5 +1,6 @@
 package com.prepdeck.common.util;
 
+import com.prepdeck.common.config.SpringEnvironmentHolder;
 import com.prepdeck.common.constant.AuthConstant;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -39,7 +40,7 @@ public final class JwtProvider {
     }
 
     private static String readSecret() {
-        String secret = System.getenv(SECRET_KEY_ENV);
+        String secret = SpringEnvironmentHolder.get(SECRET_KEY_ENV, null);
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
                     "Required environment variable " + SECRET_KEY_ENV + " is not set. " +

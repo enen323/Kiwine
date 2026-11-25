@@ -21,7 +21,7 @@ public class CorsConfig {
 
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilterRegistration() {
-        String allowedOrigins = System.getenv().getOrDefault("ALLOWED_ORIGINS", "http://127.0.0.1:*");
+        String allowedOrigins = SpringEnvironmentHolder.get("ALLOWED_ORIGINS", "http://127.0.0.1:*");
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
