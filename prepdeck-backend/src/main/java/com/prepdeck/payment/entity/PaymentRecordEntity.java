@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "payment_record", schema = "interview")
+@TableName("payment_record")
 public class PaymentRecordEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

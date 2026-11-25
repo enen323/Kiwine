@@ -12,7 +12,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "user_quota", schema = "interview")
+@TableName("user_quota")
 public class UserQuotaEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

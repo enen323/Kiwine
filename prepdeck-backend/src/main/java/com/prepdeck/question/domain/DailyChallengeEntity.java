@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "daily_challenge", schema = "interview")
+@TableName("daily_challenge")
 public class DailyChallengeEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

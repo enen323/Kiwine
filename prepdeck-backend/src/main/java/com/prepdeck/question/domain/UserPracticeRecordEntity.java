@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "user_practice_record", schema = "interview")
+@TableName("user_practice_record")
 public class UserPracticeRecordEntity {
 
     @TableId(type = IdType.ASSIGN_ID)
