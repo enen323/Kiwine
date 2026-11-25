@@ -85,6 +85,7 @@
 - 删除 8 个 `*FallbackFactory`、`@EnableFeignClients`、`feign.*` 配置、openfeign/loadbalancer 依赖。
 - **事务语义保持现状**：今天跨服务调用是独立事务（HTTP 边界即提交）。合并后默认会加入调用方事务，因此对原跨服务边界上的**写操作**显式加 `@Transactional(propagation = Propagation.REQUIRES_NEW)`（至少覆盖：payment→quota 发放、interview→quota 扣减、resume/job→quota 扣减、quota 月度重置），保持"先提交后返回"的现有语义；只读调用不加。
 - **已知行为差异（用户已认可方向）**：本地调用失败不再降级为"服务不可用"，真实异常直接冒泡到 `GlobalExceptionHandler`。语义更正确，但错误码会变。
+- **同名客户端必须显式 bean 名**：payment/interview/resume/job 四个 `client` 包下存在 4 个 `QuotaClient` 与 2 个 `ResumeClient` 同名 `@Component` 类，单体单一上下文下默认 bean 名（类名首字母小写）冲突，启动即 `ConflictingBeanDefinitionException`（Task 5 实测）。这些类一律加显式 bean 名（如 `@Component("interviewQuotaClient")`）；所有注入均为构造器按类型注入，显式 bean 名不影响任何调用方。
 
 ### 5. AI 必须配置才能启动（用户决策）
 
