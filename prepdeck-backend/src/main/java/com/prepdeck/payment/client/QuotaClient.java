@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>契约对照：QuotaController#grantPaidByUser（POST /api/v1/quota/grant-paid-by-user）。</p>
  */
-@Component
+@Component("paymentQuotaClient")
 public class QuotaClient {
 
     @Resource

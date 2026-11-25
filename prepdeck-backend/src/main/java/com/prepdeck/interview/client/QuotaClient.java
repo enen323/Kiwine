@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * QuotaService 返回 quota.dto.response.QuotaCheckResult，与 common.dto.QuotaCheckResult 结构相同但类型不同
  * （HTTP 时代靠 JSON 序列化互换，JVM 内必须显式转换），故此处逐字段转换以保持原方法签名不变。</p>
  */
-@Component
+@Component("interviewQuotaClient")
 public class QuotaClient {
 
     @Resource

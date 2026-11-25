@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * 该 controller 返回 Result&lt;ResumeVO&gt;，本客户端方法 historically 直接返回 ResumeVO（原接口即如此），
  * 故此处解包返回 data 部分。</p>
  */
-@Component
+@Component("interviewResumeClient")
 public class ResumeClient {
 
     @Resource
