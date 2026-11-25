@@ -1,4 +1,4 @@
-package com.prepdeck.resume.service.impl;
+package com.prepdeck.resume.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
