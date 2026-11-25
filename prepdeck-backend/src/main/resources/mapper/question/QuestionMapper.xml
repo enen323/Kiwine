@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.prepdeck.question.repository.QuestionMapper">
 
-    <!-- 关键词搜索（MySQL 无全文检索，按设计 §7b 用 LIKE） -->
+    <!-- 关键词搜索（MySQL 无全文检索，用 LIKE） -->
     <select id="searchByVector" resultType="com.prepdeck.question.domain.QuestionEntity">
         SELECT *
         FROM question
