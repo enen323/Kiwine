@@ -1,4 +1,4 @@
-package com.prepdeck.job.client;
+package com.prepdeck.job.dto.response;
 
 import java.math.BigDecimal;
 
