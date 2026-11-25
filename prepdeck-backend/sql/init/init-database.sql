@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS resume (
     user_id         BIGINT          NOT NULL COMMENT 'Owner user ID, FK to user_account',
     file_name       VARCHAR(255)    COMMENT 'Original uploaded file name',
     file_url        VARCHAR(512)    COMMENT 'File storage URL or object storage key',
-    content_text    TEXT            COMMENT 'Full text extracted from the resume file (OCR/parsed)',
+    content_text    MEDIUMTEXT      COMMENT 'Full text extracted from the resume file (OCR/parsed)',
     content_json    JSON            COMMENT 'Structured resume data in JSON format',
     is_active       BOOLEAN         NOT NULL DEFAULT FALSE COMMENT 'Active resume flag: only one resume per user should be active at a time',
 
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS interview_record (
     score_project   INTEGER         COMMENT 'Project experience score (0-100)',
     score_logic     INTEGER         COMMENT 'Logical thinking score (0-100)',
     score_adaptability INTEGER      COMMENT 'Adaptability score (0-100)',
-    suggestion      TEXT            COMMENT 'AI-generated improvement suggestion text',
+    suggestion      MEDIUMTEXT      COMMENT 'AI-generated improvement suggestion text',
 
     -- Timing
     started_at      DATETIME        COMMENT 'When the interview session started',
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS interview_message (
     -- Business fields
     interview_id    BIGINT          NOT NULL COMMENT 'Parent interview session ID, FK to interview_record',
     role            VARCHAR(10)     NOT NULL COMMENT 'Message sender: AI or USER',
-    content         TEXT            NOT NULL COMMENT 'Message content text (markdown supported for AI messages)',
+    content         MEDIUMTEXT      NOT NULL COMMENT 'Message content text (markdown supported for AI messages)',
     question_type   VARCHAR(30)     COMMENT 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA',
     sequence_num    INTEGER         NOT NULL COMMENT 'Sequential message number within the interview (0-based)',
     token_count     INTEGER         NOT NULL DEFAULT 0 COMMENT 'Number of tokens in this message (for AI usage tracking)',
@@ -210,9 +210,9 @@ CREATE TABLE IF NOT EXISTS interview_question_score (
     interview_id         BIGINT          NOT NULL COMMENT 'Parent interview session ID, FK to interview_record',
     message_id           BIGINT          NOT NULL COMMENT 'Parent message ID, FK to interview_message',
     question_type        VARCHAR(32)     NOT NULL COMMENT 'Question category: SELF_INTRO, TECH_PROJECT, TECH_BASIC, ALGORITHM, SYSTEM_DESIGN, BEHAVIORAL, REVERSE_QA',
-    question_description TEXT            NOT NULL COMMENT 'The question text that was scored',
+    question_description MEDIUMTEXT      NOT NULL COMMENT 'The question text that was scored',
     score                INTEGER         NOT NULL COMMENT 'Score for this question (0-100)',
-    feedback             TEXT            COMMENT 'AI-generated feedback for this specific answer',
+    feedback             MEDIUMTEXT      COMMENT 'AI-generated feedback for this specific answer',
     create_time          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted              BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS interview_question_score (
 CREATE TABLE IF NOT EXISTS question (
     id              BIGINT          PRIMARY KEY,
     title           VARCHAR(200)    NOT NULL COMMENT 'Question title/summary',
-    content         TEXT            NOT NULL COMMENT 'Full question description',
+    content         MEDIUMTEXT      NOT NULL COMMENT 'Full question description',
     answer          JSON            NOT NULL DEFAULT ('{}') COMMENT 'JSON: { summary, analysis, code }',
     type            VARCHAR(20)     NOT NULL DEFAULT 'SCENARIO' COMMENT 'SCENARIO / ALGORITHM / SYSTEM_DESIGN / BEHAVIORAL / LANGUAGE',
     difficulty      VARCHAR(10)     NOT NULL DEFAULT 'MEDIUM' COMMENT 'EASY / MEDIUM / HARD',
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS user_practice_record (
 --    WHERE deleted = false AND status IN ('CREATED', 'IN_PROGRESS')
 --    PG purpose: "one active interview per user" hard business rule.
 --    Guarded in the app layer by
---    InterviewServiceImpl.checkNoActiveInterview (interview/service/impl/InterviewServiceImpl.java).
+--    InterviewServiceImpl.checkNoActiveInterview (prepdeck-backend/src/main/java/com/prepdeck/interview/service/InterviewServiceImpl.java:708).
 --
 -- shortcut: 并发双开（同时创建两个进行中面试）的竞态窗口存在（应用层检查非原子），
 --           生产化需改为生成列 + 唯一索引。
@@ -412,7 +412,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
     channel     VARCHAR(64)  NULL,
     status      VARCHAR(32)  NOT NULL,
     applied_at  DATETIME     NOT NULL,
-    notes       TEXT         NULL,
+    notes       MEDIUMTEXT   NULL,
     created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -431,11 +431,11 @@ CREATE TABLE IF NOT EXISTS ai_cover_letters (
     application_id  VARCHAR(64)  NULL,
     company         VARCHAR(255) NOT NULL,
     position        VARCHAR(255) NOT NULL,
-    job_description TEXT         NULL,
-    extra_notes     TEXT         NULL,
+    job_description MEDIUMTEXT   NULL,
+    extra_notes     MEDIUMTEXT   NULL,
     output_language VARCHAR(64)  NOT NULL,
     title           VARCHAR(255) NOT NULL,
-    body            TEXT         NOT NULL,
+    body            MEDIUMTEXT   NOT NULL,
     created_at      DATETIME     NOT NULL,
     updated_at      DATETIME     NOT NULL
 );
@@ -456,4 +456,7 @@ CREATE INDEX idx_ai_cover_letters_application
 --   explicitly in the mapper (known difference #8).
 -- * PG's ALTER SYSTEM idle-timeout settings have no MySQL equivalent and
 --   were not replaced (MySQL manages this via wait_timeout on the server).
+-- * ONE-SHOT script: CREATE INDEX carries no IF NOT EXISTS and
+--   ALTER TABLE ... ADD CONSTRAINT fails with ERROR 1061 on re-run —
+--   DROP DATABASE prepdeck before executing this again.
 -- ============================================================
