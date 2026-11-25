@@ -13,7 +13,7 @@ import type {
  * 开发态走 vite 代理、无网关，故必须由前端显式携带该头；统一在此模块内
  * 注入，调用方无需关心。userId 来源于 `userApi.getMe()`。
  *
- * 路由前缀：`/api/v1/reports`（vite 统一代理到网关 localhost:8080，由网关路由到 report 服务）。
+ * 路由前缀：`/api/v1/reports`（vite 统一代理到网关 localhost:8081，由网关路由到 report 服务）。
  */
 
 /** 把后端业务错误码翻译成用户可读的中文提示（HTTP 200 + code != 0）。 */
