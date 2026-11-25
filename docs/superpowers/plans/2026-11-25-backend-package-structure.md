@@ -127,8 +127,8 @@ Expected: 3 条 `Renaming`；`job/service/impl/` 不存在。
 
 - [ ] **Step 3: 结构断言**
 
-Run: `grep -rn "job\.client\.ResumeVO\|job\.service\.impl" prepdeck-backend/src/main/ && find prepdeck-backend/src/main/java -type d -name impl`
-Expected: 均无输出。
+Run: `grep -rn "job\.client\.ResumeVO\|job\.service\.impl" prepdeck-backend/src/main/ && find prepdeck-backend/src/main/java/com/prepdeck/job -type d -name impl`
+Expected: 均无输出（resume 的 impl 目录由 Task 3 清除，此处只断言 job 域）。
 
 - [ ] **Step 4: 编译**
 
