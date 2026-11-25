@@ -30,7 +30,7 @@ public class JsonbTypeHandler extends BaseTypeHandler<Object> {
     public void setNonNullParameter(PreparedStatement ps, int i, Object parameter, JdbcType jdbcType) throws SQLException {
         try {
             String json = OBJECT_MAPPER.writeValueAsString(parameter);
-            ps.setObject(i, json, Types.OTHER);
+            ps.setObject(i, json, Types.VARCHAR);
         } catch (Exception e) {
             throw new SQLException("Failed to serialize JSONB parameter", e);
         }

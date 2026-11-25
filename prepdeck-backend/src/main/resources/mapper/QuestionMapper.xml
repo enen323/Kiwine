@@ -3,29 +3,29 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.prepdeck.question.repository.QuestionMapper">
 
-    <!-- 全文检索 -->
+    <!-- 关键词搜索（MySQL 无全文检索，按设计 §7b 用 LIKE） -->
     <select id="searchByVector" resultType="com.prepdeck.question.domain.QuestionEntity">
         SELECT *
-        FROM interview.question
+        FROM question
         WHERE deleted = false
-          AND search_vector @@ websearch_to_tsquery('simple', #{keyword})
+          AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
         ORDER BY create_time DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countSearchByVector" resultType="long">
         SELECT COUNT(*)
-        FROM interview.question
+        FROM question
         WHERE deleted = false
-          AND search_vector @@ websearch_to_tsquery('simple', #{keyword})
+          AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
     </select>
 
     <!-- 随机选题 -->
     <select id="selectRandom" resultType="com.prepdeck.question.domain.QuestionEntity">
         SELECT *
-        FROM interview.question
+        FROM question
         WHERE deleted = false
-        ORDER BY RANDOM()
+        ORDER BY RAND()
         LIMIT #{limit}
     </select>
 
@@ -33,7 +33,7 @@
     <select id="selectQuestionList" resultType="com.prepdeck.question.domain.QuestionEntity">
         SELECT *,
                (views * 0.1 + favorites * 0.3 + interview_count * 0.5) AS heat
-        FROM interview.question q
+        FROM question q
         WHERE q.deleted = false
           <if test="type != null and type != ''">
             AND q.type = #{type}
@@ -42,12 +42,12 @@
             AND q.difficulty = #{difficulty}
           </if>
           <if test="keyword != null and keyword != ''">
-            AND q.search_vector @@ websearch_to_tsquery('simple', #{keyword})
+            AND (q.title LIKE CONCAT('%', #{keyword}, '%') OR q.content LIKE CONCAT('%', #{keyword}, '%'))
           </if>
           <if test="tagIds != null and tagIds.size() > 0">
             AND EXISTS (
                 SELECT 1
-                FROM interview.question_tag qt
+                FROM question_tag qt
                 WHERE qt.question_id = q.id
                   AND qt.tag_id IN
                 <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
@@ -91,7 +91,7 @@
 
     <select id="countQuestionList" resultType="long">
         SELECT COUNT(*)
-        FROM interview.question q
+        FROM question q
         WHERE q.deleted = false
           <if test="type != null and type != ''">
             AND q.type = #{type}
@@ -100,12 +100,12 @@
             AND q.difficulty = #{difficulty}
           </if>
           <if test="keyword != null and keyword != ''">
-            AND q.search_vector @@ websearch_to_tsquery('simple', #{keyword})
+            AND (q.title LIKE CONCAT('%', #{keyword}, '%') OR q.content LIKE CONCAT('%', #{keyword}, '%'))
           </if>
           <if test="tagIds != null and tagIds.size() > 0">
             AND EXISTS (
                 SELECT 1
-                FROM interview.question_tag qt
+                FROM question_tag qt
                 WHERE qt.question_id = q.id
                   AND qt.tag_id IN
                 <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
@@ -120,7 +120,7 @@
     <select id="selectRecommendationList" resultType="com.prepdeck.question.domain.QuestionEntity">
         SELECT *,
                (views * 0.1 + favorites * 0.3 + interview_count * 0.5) AS heat
-        FROM interview.question q
+        FROM question q
         WHERE q.deleted = false
           <if test="types != null and types.size() > 0">
             AND q.type IN

@@ -13,7 +13,7 @@ public class JsonbTypeHandler extends BaseTypeHandler<String> {
 
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, String parameter, JdbcType jdbcType) throws SQLException {
-        ps.setObject(i, parameter, Types.OTHER);
+        ps.setObject(i, parameter, Types.VARCHAR);
     }
 
     @Override

@@ -5,7 +5,7 @@
 
     <select id="findByUserAndQuestion" resultType="com.prepdeck.question.domain.UserFavoriteEntity">
         SELECT *
-        FROM interview.user_favorite
+        FROM user_favorite
         WHERE user_id = #{userId}
           AND question_id = #{questionId}
           AND deleted = false
@@ -14,14 +14,14 @@
 
     <select id="countByQuestion" resultType="int">
         SELECT COUNT(*)
-        FROM interview.user_favorite
+        FROM user_favorite
         WHERE question_id = #{questionId}
           AND deleted = false
     </select>
 
     <select id="countByUser" resultType="long">
         SELECT COUNT(*)
-        FROM interview.user_favorite
+        FROM user_favorite
         WHERE user_id = #{userId}
           AND deleted = false
     </select>
