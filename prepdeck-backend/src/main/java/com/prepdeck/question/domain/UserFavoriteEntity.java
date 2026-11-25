@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "user_favorite", schema = "interview")
+@TableName("user_favorite")
 public class UserFavoriteEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

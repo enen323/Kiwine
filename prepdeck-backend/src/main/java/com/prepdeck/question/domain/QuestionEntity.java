@@ -7,7 +7,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "question", schema = "interview")
+@TableName("question")
 public class QuestionEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

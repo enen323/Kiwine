@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
  * <p>对应数据库表 interview.resume�?/p>
  */
 @Data
-@TableName(value = "resume", schema = "interview")
+@TableName("resume")
 public class ResumeEntity {
 
     @TableId(type = IdType.ASSIGN_ID)

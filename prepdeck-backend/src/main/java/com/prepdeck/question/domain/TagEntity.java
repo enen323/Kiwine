@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName(value = "tag", schema = "interview")
+@TableName("tag")
 public class TagEntity {
 
     @TableId(type = IdType.ASSIGN_ID)
